@@ -1,0 +1,34 @@
+# 🛑 Ignore các file Python cache
+__pycache__/
+*.py[cod]
+*.so
+
+# 🛑 Ignore môi trường ảo (virtual environments)
+venv/
+.venv/
+
+# 🛑 Ignore các file logs, databases, và temp files
+*.log
+*.sqlite3
+*.db
+*.tmp
+*.bak
+*.rar
+
+# 🛑 Ignore các file cấu hình cá nhân (nếu có)
+*.secret
+
+# 🛑 Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# 🛑 Ignore IDE và editor configs
+.vscode/
+.idea/
+*.iml
+
+# 🛑 Ignore các file do hệ thống tạo ra
+.DS_Store
+Thumbs.db
+dataset/
+others/
+document/
