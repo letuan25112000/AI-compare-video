@@ -83,6 +83,8 @@ while True:
                 person_found = True
             else:
                 continue
+
+            
             
             detections.append((x1, y1, x2, y2, color, label))
         
