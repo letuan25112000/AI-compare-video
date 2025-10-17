@@ -32,3 +32,5 @@ Thumbs.db
 dataset/
 others/
 document/
+data_train/
+runs/
