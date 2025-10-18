@@ -2,38 +2,53 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>解析結果 - AI映像検出</title>
+    <title>AI検出 - ビデオ異常検知</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='style.css') }}"
     />
+    <style></style>
   </head>
   <body>
     <div class="container">
-      {% if changes %}
-      <h3>検出された異常一覧</h3>
-      <div class="error-list">
-        {% for c, img in combined %}
-        <div class="error-item">
-          <p>
-            <b>{{ c.start }}秒 ～ {{ c.end }}秒</b> の間に異常を検出しました。
-          </p>
-          {% if img %}
-          <img
-            src="{{ url_for('static', filename='results/' + img) }}"
-            alt="異常画像"
-            class="error-image"
-          />
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      <p>レポートを以下のメールアドレスへ送信しました：<b>{{ email }}</b></p>
-      {% else %}
-      <p>異常は検出されませんでした。</p>
-      {% endif %}
+      <h1>機能② 2つのビデオ比較</h1>
+      <form
+        id="uploadForm"
+        action="/feature2"
+        method="POST"
+        enctype="multipart/form-data"
+      >
+        <label>通知を受け取るメールアドレス:</label>
+        <input
+          type="text"
+          name="email"
+          placeholder="メールアドレスを入力..."
+          required
+        />
 
-      <a href="{{ url_for('index') }}" class="btn">戻る</a>
+        <label>基準となるビデオ（元動画）:</label>
+        <input type="file" name="video1" accept="video/*" required />
+
+        <label>比較対象のビデオ（変更後の動画）:</label>
+        <input type="file" name="video2" accept="video/*" required />
+
+        <button type="submit">AIでビデオを解析</button>
+      </form>
     </div>
+
+    <div id="loading" class="loading-overlay">
+      <div style="display: flex; align-items: center">
+        <div class="spinner"></div>
+        AIでビデオを処理中です。少々お待ちください...
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("uploadForm");
+      const loading = document.getElementById("loading");
+      form.addEventListener("submit", () => {
+        loading.style.display = "flex";
+      });
+    </script>
   </body>
 </html>

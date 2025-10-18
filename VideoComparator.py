@@ -1,7 +1,5 @@
 import cv2
-import numpy as np
 from ultralytics import YOLO
-import os
 from skimage.metrics import structural_similarity as ssim
 from dotenv import load_dotenv
 
