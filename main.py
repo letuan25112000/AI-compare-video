@@ -145,7 +145,7 @@ def feature2():
         if changes:
             body = "動画内で異常が検出されました：\n"
             for c in changes:
-                body += f"- {c['start']}秒 ～ {c['end']}秒\n"
+                body += f"- {c['start']}秒 ～ {c['end']}秒\n ・ アイコン異常：{c['error_point']}"
             print("BODY: ", body)
             send_mail("*** 異常検出レポート", body, email, snapshots)
 
@@ -164,7 +164,7 @@ def feature2():
             changes=changes,
             snapshots=snapshot_files,
             email=email,
-            combined=list(zip(changes, snapshot_files))  # 👈 thêm dòng này
+            combined=list(zip(changes, snapshot_files)) 
 )
             
     return render_template("feature2.html")

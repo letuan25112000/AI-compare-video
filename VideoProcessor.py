@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class VideoProcessor:
     def __init__(self, model_path="models/best_main.pt", conf_thresh=0.6, frame_delay_time=0.2, no_error_limit=5):
         # YOLOモデルをロード
@@ -13,6 +12,10 @@ class VideoProcessor:
         self.NO_ERROR_LIMIT = no_error_limit
         self.FRAME_DELAY_TIME = frame_delay_time  # 秒単位
         self.MODEL_CLASS_IDS = ["BT", "Wifi", "Cel", "Hots", "Bri", "Dev"]
+        self.MODEL_CLASS_IDS_JP = [
+            "ブルートゥース", "Wi-Fi", "セルラー",
+            "テザリング", "輝度", "開発"
+        ]
         self.ERROR_CLASS_ID = [2, 3]  # 異常とみなすクラスID
 
     def process_detections(self, frame, results):

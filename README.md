@@ -141,3 +141,34 @@ yolo train model=yolov8n.pt data=dataset.yaml epochs=100 imgsz=640
 例：これは NG
 
 ![alt text](ReadmeImg/{2B65BB3F-A8D3-4D16-BD16-0DE4BA8DDCFD}.png)
+
+本デモはシミュレーターで自動動作の動画は　 A、B、C 　あり、
+上左が「Bluetooth」、「WIFI」、「輝度」、「開発」というアイコンです、
+「WIFI」が「セルラー」や「テザリング」に切り替えられます。
+想定の状況は「WIFI」から「セルラー」や「テザリング」切り替えると NG になります。
+・A：普通の動作、「WIFI」がそのまま
+・B：動作中に「WIFI」→「セルラー」に切り替えられる
+・C：動作中に「WIFI」→「テザリング」に切り替えられる
+※不具合がさせられないため、強制的に切り替えられる
+→ 不具合パータンが事前に追加が必要です。
+
+デモ内のエラー宣言箇所：
+１．VideoComparator.py
+２．VideoProcessor.py
+
+```python
+    def __init__(self, model_path="models/best_main.pt", conf_thresh=0.6, process_fps=3, no_error_limit=5):
+        self.MODEL_CLASS_IDS = ["BT", "Wifi", "Cel", "Hots", "Bri", "Dev"]
+        self.MODEL_CLASS_IDS_JP = [
+            "ブルートゥース", "Wi-Fi", "セルラー",
+            "テザリング", "輝度", "開発"
+        ]
+        self.ERROR_CLASS_ID = [2, 3]        #　★　ここがエラーアイコン対象です。
+        self.CONF_THRESH = conf_thresh
+        self.PROCESS_FPS = process_fps
+        self.NO_ERROR_LIMIT = no_error_limit
+
+        self.model = YOLO(model_path, task='detect')
+```
+
+エラーボタンによると実装の理論が変わる可能性もあります。
