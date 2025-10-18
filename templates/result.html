@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>解析結果 - AI映像検出</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h2>検出結果</h2>
+
+      {% if changes %}
+      <ul>
+        {% for c in changes %}
+        <li>{{ c.start }}秒 ～ {{ c.end }}秒 の間に異常を検出しました。</li>
+        {% endfor %}
+      </ul>
+      <p>レポートを以下のメールアドレスへ送信しました：<b>{{ email }}</b></p>
+      {% else %}
+      <p>異常は検出されませんでした。</p>
+      {% endif %}
+
+      <br /><br />
+      <a href="{{ url_for('download', filename=result_video) }}" class="btn"
+        >解析結果の動画をダウンロード</a
+      >
+      <a href="{{ url_for('index') }}" class="btn">⬅️ 戻る</a>
+    </div>
+  </body>
+</html>
