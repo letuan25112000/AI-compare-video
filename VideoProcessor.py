@@ -20,6 +20,7 @@ class VideoProcessor:
 
     def process_detections(self, frame, results):
         """YOLOの結果を処理し、バウンディングボックスを描画"""
+        class_ids = []
         detections = []
         error_found = False
 
@@ -36,10 +37,12 @@ class VideoProcessor:
                 color = (0, 0, 255)
                 error_found = True
 
+            class_ids.append(cls_id)
+
             label = self.MODEL_CLASS_IDS[cls_id]
             detections.append((x1, y1, x2, y2, color, label))
 
-        return detections, error_found
+        return detections, error_found, class_ids
 
     def process_video(self, input_path, output_path):
         cap = cv2.VideoCapture(input_path)
@@ -57,6 +60,8 @@ class VideoProcessor:
         changes = []
         snapshot_images = []
 
+        origin = []
+
         frame_forward = round(fps * self.FRAME_DELAY_TIME)
 
         while True:
@@ -68,7 +73,14 @@ class VideoProcessor:
             time_sec = frame_id / fps
             results = self.model(frame, imgsz=640, verbose=False)[0]
 
-            detections, error_found = self.process_detections(frame, results)
+            detections, error_found, class_ids = self.process_detections(frame, results)
+
+            # === 
+            origin[frame_id] = class_ids
+            # origin.append({
+            #                 "frame_id": frame_id,
+            #                 "class_ids": class_ids
+            #             })
 
             # 異常状態を検出
             if error_found:
