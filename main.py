@@ -20,36 +20,6 @@ app.config["RESULT_FOLDER"] = "static/results"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
 
-def send_mail(subject, body, receiver_email, images=None):
-    EMAIL_SENDER = os.getenv("EMAIL_SENDER")
-    EMAIL_PASSWORD = os.getenv("EMAIL_APP_PASSWORD")
-
-    em = EmailMessage()
-    em["From"] = EMAIL_SENDER
-    em["To"] = receiver_email
-    em["Subject"] = subject
-    em.set_content(body)
-
-    # 添付画像
-    if images:
-        for i, img in enumerate(images):
-            if img is None:
-                continue
-            _, buffer = cv2.imencode('.jpg', img)
-            img_data = buffer.tobytes()
-            filename = f'image_{i+1}.jpg'
-            em.add_attachment(img_data, maintype='image', subtype='jpeg', filename=filename)
-
-    context = ssl.create_default_context()
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as smtp:
-            smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            smtp.send_message(em)
-            print(f"*** メールを {receiver_email} に送信しました。")
-    except Exception as e:
-        print(f"[メール送信エラー]: {e}")
-
-
 # 結果フォルダ内の古い動画を削除
 def clear_video(folder):
     for f in os.listdir(folder):
@@ -96,13 +66,6 @@ def feature1():
 
         changes, snapshots = process_video_feature_1(filepath, result_path)
 
-        if changes:
-            body = "動画内で異常が検出されました：\n"
-            for c in changes:
-                body += f"- {c['start']}秒 ～ {c['end']}秒\n"
-            print("BODY: ", body)
-            send_mail("*** 異常検出レポート", body, email, snapshots)
-
         return render_template("result.html",
                                result_video=result_filename,
                                changes=changes,
@@ -140,14 +103,6 @@ def feature2():
         result_path = os.path.join(app.config["RESULT_FOLDER"], result_filename)
 
         changes, snapshots = process_video_feature_2(filepath_org, filepath_des, result_path)
-
-
-        if changes:
-            body = "動画内で異常が検出されました：\n"
-            for c in changes:
-                body += f"- {c['start']}秒 ～ {c['end']}秒\n ・ アイコン異常：{c['error_point']}"
-            print("BODY: ", body)
-            send_mail("*** 異常検出レポート", body, email, snapshots)
 
         snapshot_files = []
         for i, img in enumerate(snapshots):
