@@ -18,19 +18,35 @@ def clean_folder(results_dir):
             elif f.is_dir():
                 shutil.rmtree(f)
         except Exception as e:
-            print(f"Không thể xóa {f}: {e}")
-    print("Đã dọn sạch thư mục results/")
+            print(f"削除できません {f}: {e}")
 
 class VideoObjectAnalyzer:
-    def __init__(self, model_path="models/best_main.pt", conf_thresh=0.6, config=None):
-        self.MODEL_CLASS_IDS = ["BT", "Wifi", "Cel", "Hots", "Bri", "Dev"]
-        self.MODEL_CLASS_IDS_JP = ["ブルートゥース", "Wi-Fi", "セルラー", "テザリング", "輝度", "開発"]
+    def __init__(self, model_path="models/best_0301.pt", conf_thresh=0.6, config=None):
+        self.MODEL_CLASS_IDS = [
+            "BT", 
+            "Wifi", 
+            "Cel", 
+            "Hots", 
+            "Bri", 
+            "Dev", 
+            "Home", 
+            "Radio",
+        ]
+        self.MODEL_CLASS_IDS_JP = [
+            "ブルートゥース", 
+            "Wi-Fi", 
+            "セルラー", 
+            "テザリング", 
+            "輝度", 
+            "開発", 
+            "ホーム", 
+            "ラジオ",
+        ]
         self.CONF_THRESH = conf_thresh
         self.config = config or SystemConfig()
         self.model = YOLO(model_path, task='detect')
 
     def analyze_video(self, video_path):
-        print("Video path: ", video_path)
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"動画を開けませんでした: {video_path}")
@@ -116,18 +132,42 @@ class VideoObjectAnalyzer:
 
         for name, summary in results.items():
             diff_detail = summary["diff_detail"]
-            fps = summary.get("fps", 30)  # FPS thực từ video
+            fps = summary.get("fps", 30)
 
-            for frame_index, info in diff_detail.items():
-                start_s = frame_index / fps
-                end_s = (frame_index + 1) / fps
-                time_str = f"{start_s:.1f}s ~ {end_s:.1f}s"
+            # --- Sort by frame index ---
+            sorted_frames = sorted(diff_detail.items())
 
+            merged_entries = []
+            prev_diff_text = None
+            start_frame = None
+            end_frame = None
+
+            for frame_index, info in sorted_frames:
                 added_txt = "＋追加: " + ", ".join(info["added"]) if info["added"] else ""
                 removed_txt = "－削除: " + ", ".join(info["removed"]) if info["removed"] else ""
                 diff_text = "\n".join([x for x in [added_txt, removed_txt] if x])
 
-                ws.append([name, "NG", time_str, diff_text])
+                if diff_text == prev_diff_text:
+                    end_frame = frame_index
+                else:
+                    if prev_diff_text is not None:
+                        start_s = start_frame / fps
+                        end_s = (end_frame + 1) / fps
+                        time_str = f"{start_s:.1f}s ~ {end_s:.1f}s"
+                        merged_entries.append([name, "NG", time_str, prev_diff_text])
+
+                    prev_diff_text = diff_text
+                    start_frame = frame_index
+                    end_frame = frame_index
+
+            if prev_diff_text is not None:
+                start_s = start_frame / fps
+                end_s = (end_frame + 1) / fps
+                time_str = f"{start_s:.1f}s ~ {end_s:.1f}s"
+                merged_entries.append([name, "NG", time_str, prev_diff_text])
+
+            for row in merged_entries:
+                ws.append(row)
 
         wb.save(output_path)
         print(f"Excel出力完了: {output_path}")
@@ -136,7 +176,7 @@ class VideoObjectAnalyzer:
         config = self.config
 
         results_dir = Path("results/VideoComparator")
-        results_dir.mkdir(exist_ok=True)
+        results_dir.mkdir(parents=True, exist_ok=True)
 
         clean_folder(results_dir)
 
