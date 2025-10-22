@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class VideoComparator:
     def __init__(self, model_path="models/best_main.pt", conf_thresh=0.6, process_fps=3, no_error_limit=5):
         self.MODEL_CLASS_IDS = ["BT", "Wifi", "Cel", "Hots", "Bri", "Dev"]

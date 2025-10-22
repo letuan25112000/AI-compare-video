@@ -1,51 +1,38 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>AI検出 - ビデオ異常検知</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
-    />
-    <style></style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>機能① 映像内の異常検出</h1>
-      <form
-        id="uploadForm"
-        action="/feature1"
-        method="POST"
-        enctype="multipart/form-data"
-      >
-        <label>通知を受け取るメールアドレス:</label>
-        <input
-          type="text"
-          name="email"
-          placeholder="メールアドレスを入力..."
-          required
-        />
 
-        <label>処理したいビデオを選択:</label>
-        <input type="file" name="video" accept="video/*" required />
+<head>
+  <meta charset="UTF-8" />
+  <title>AI検出 - ビデオ異常検知</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style></style>
+</head>
 
-        <button type="submit">AIでビデオを解析</button>
-      </form>
+<body>
+  <div class="container">
+    <h1>機能① 映像内の異常検出</h1>
+    <form id="uploadForm" action="/feature1" method="POST" enctype="multipart/form-data">
+      <label>処理したいビデオを選択:</label>
+      <input type="file" name="video" accept="video/*" required />
+
+      <button type="submit">AIでビデオを解析</button>
+    </form>
+  </div>
+
+  <div id="loading" class="loading-overlay">
+    <div style="display: flex; align-items: center">
+      <div class="spinner"></div>
+      AIでビデオを処理中です。少々お待ちください...
     </div>
+  </div>
 
-    <div id="loading" class="loading-overlay">
-      <div style="display: flex; align-items: center">
-        <div class="spinner"></div>
-        AIでビデオを処理中です。少々お待ちください...
-      </div>
-    </div>
+  <script>
+    const form = document.getElementById("uploadForm");
+    const loading = document.getElementById("loading");
+    form.addEventListener("submit", () => {
+      loading.style.display = "flex";
+    });
+  </script>
+</body>
 
-    <script>
-      const form = document.getElementById("uploadForm");
-      const loading = document.getElementById("loading");
-      form.addEventListener("submit", () => {
-        loading.style.display = "flex";
-      });
-    </script>
-  </body>
 </html>

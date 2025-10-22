@@ -1,26 +1,36 @@
 import cv2
+import json
+from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from ultralytics import YOLO
 from dotenv import load_dotenv
+import openpyxl
+import shutil
+from checkPC import SystemConfig
 
 load_dotenv()
 
+def clean_folder(results_dir):
+    for f in results_dir.glob("*"):
+        try:
+            if f.is_file() or f.is_symlink():
+                f.unlink()
+            elif f.is_dir():
+                shutil.rmtree(f)
+        except Exception as e:
+            print(f"Không thể xóa {f}: {e}")
+    print("Đã dọn sạch thư mục results/")
 
 class VideoObjectAnalyzer:
-    def __init__(self, model_path="models/best_main.pt", conf_thresh=0.6, process_fps=5):
+    def __init__(self, model_path="models/best_main.pt", conf_thresh=0.6, config=None):
         self.MODEL_CLASS_IDS = ["BT", "Wifi", "Cel", "Hots", "Bri", "Dev"]
-        self.MODEL_CLASS_IDS_JP = [
-            "ブルートゥース", "Wi-Fi", "セルラー",
-            "テザリング", "輝度", "開発"
-        ]
+        self.MODEL_CLASS_IDS_JP = ["ブルートゥース", "Wi-Fi", "セルラー", "テザリング", "輝度", "開発"]
         self.CONF_THRESH = conf_thresh
-        self.PROCESS_FPS = process_fps
+        self.config = config or SystemConfig()
         self.model = YOLO(model_path, task='detect')
 
-    # ============================================
-    # 解析: video → frameごとのclass id一覧
-    # ============================================
     def analyze_video(self, video_path):
-        """Videoをフレーム単位で解析し、{ frame_index: [class_id1, ...] } を返す"""
+        print("Video path: ", video_path)
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"動画を開けませんでした: {video_path}")
@@ -28,130 +38,130 @@ class VideoObjectAnalyzer:
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = frame_count / fps if fps > 0 else 0
-        interval = int(fps // self.PROCESS_FPS) if fps > self.PROCESS_FPS else 1
+        interval = int(fps // self.config.PROCESS_FPS) if fps > self.config.PROCESS_FPS else 1
 
         frame_objects = {}
         frame_index = 0
 
-        print(f"\n=== {video_path} の解析開始 ===")
+        print(f"\n{video_path} の解析開始")
         print(f"FPS: {fps:.1f}, 総フレーム数: {frame_count}, 再生時間: {duration:.2f} 秒")
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-
-            # 指定間隔で処理（軽量化）
             if frame_index % interval != 0:
                 frame_index += 1
                 continue
 
-            results = self.model(frame, imgsz=640, verbose=False)[0]
-            class_ids = []
-
-            for box in results.boxes:
-                cls_id = int(box.cls[0])
-                conf = float(box.conf[0])
-                if conf >= self.CONF_THRESH:
-                    class_ids.append(cls_id)
-
+            results = self.model(frame, imgsz=self.config.IMGSZ, verbose=False)[0]
+            class_ids = [int(box.cls[0]) for box in results.boxes if float(box.conf[0]) >= self.CONF_THRESH]
             frame_objects[frame_index] = list(set(class_ids))
             frame_index += 1
 
         cap.release()
-        print(f"=== 解析完了: {len(frame_objects)} フレーム ===")
-        return frame_objects, duration
+        print(f"解析完了: {len(frame_objects)} フレーム")
+        return frame_objects, duration, fps
 
-    # ============================================
-    # 比較: 2つのvideo解析結果を比較（ログ付き）
-    # ============================================
     def compare_analysis(self, data_org, data_des):
-        """2つの解析結果を比較し、frameごとの差分を返す"""
-        # cắt phần dư: chỉ so sánh trong phạm vi chung
         max_index = min(max(data_org.keys()), max(data_des.keys()))
         all_keys = sorted(k for k in data_org.keys() if k <= max_index)
-
         diff_result = {}
 
         for key in all_keys:
             ids_org = set(data_org.get(key, []))
             ids_des = set(data_des.get(key, []))
-
             added = ids_des - ids_org
             removed = ids_org - ids_des
 
             if added or removed:
-                added_names = [self.MODEL_CLASS_IDS_JP[i] for i in added]
-                removed_names = [self.MODEL_CLASS_IDS_JP[i] for i in removed]
-
                 diff_result[key] = {
                     "frame_index": key,
-                    "added": added_names,
-                    "removed": removed_names,
-                    "org_ids": [self.MODEL_CLASS_IDS_JP[i] for i in ids_org],
-                    "des_ids": [self.MODEL_CLASS_IDS_JP[i] for i in ids_des]
+                    "added": [self.MODEL_CLASS_IDS[i] for i in added],
+                    "removed": [self.MODEL_CLASS_IDS[i] for i in removed]
                 }
-
-                print(f"\n=== Frame {key} 差分検出 ===")
-                print(f"元動画: {', '.join(diff_result[key]['org_ids']) or 'なし'}")
-                print(f"比較動画: {', '.join(diff_result[key]['des_ids']) or 'なし'}")
-                if added_names:
-                    print(f"＋追加: {', '.join(added_names)}")
-                if removed_names:
-                    print(f"－削除: {', '.join(removed_names)}")
-
-        if not diff_result:
-            print("差分なし。")
 
         return diff_result
 
-    # ============================================
-    # 総合処理: 2 video入力 → 差分出力
-    # ============================================
     def compare_videos(self, video_org, video_des):
-        print("=== 元動画を解析中 ===")
-        data_org, duration_org = self.analyze_video(video_org)
-
-        print("=== 比較対象動画を解析中 ===")
-        data_des, duration_des = self.analyze_video(video_des)
-
-        print("=== 差分比較中 ===")
+        data_org, duration_org, fps_org = self.analyze_video(video_org)
+        data_des, duration_des, fps_des = self.analyze_video(video_des)
         diff = self.compare_analysis(data_org, data_des)
-
-        # Tính thời lượng & xác định video nào dài hơn
-        if duration_org > duration_des:
-            longer = "org"
-        elif duration_des > duration_org:
-            longer = "des"
-        else:
-            longer = "equal"
-
-        duration_diff = abs(duration_org - duration_des)
 
         summary = {
             "duration_org": round(duration_org, 2),
             "duration_des": round(duration_des, 2),
-            "duration_diff": round(duration_diff, 2),
-            "longer_video": longer,
             "diff_frames": len(diff),
-            "diff_detail": diff
+            "diff_detail": diff,
+            "fps": round(fps_des or fps_org, 2)
         }
-
-        print("\n=== 比較結果サマリ ===")
-        print(f"元動画: {duration_org:.2f}s, 比較動画: {duration_des:.2f}s")
-        print(f"差分時間: {duration_diff:.2f}s, 長い方: {longer}")
-        print(f"差分フレーム: {len(diff)}")
-
         return summary
 
 
-def main():
-    A = "videos/A_fixed.mp4"
-    B = "videos/B_fixed.mp4"
-
-    comparator = VideoObjectAnalyzer()
-    result = comparator.compare_videos(A, B)
+    def process_video_pair(self, video_org, video_des, config):
+        analyzer = VideoObjectAnalyzer(config=config)
+        summary = analyzer.compare_videos(video_org, video_des)
+        return Path(video_des).name, summary
 
 
-if __name__ == "__main__":
-    main()
+    # ============================================
+    #  Excel出力用関数
+    # ============================================
+    def export_to_excel(self, results, output_path):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "比較結果"
+        headers = ["先動画", "確認結果", "時刻", "違いポイント"]
+        ws.append(headers)
+
+        for name, summary in results.items():
+            diff_detail = summary["diff_detail"]
+            fps = summary.get("fps", 30)  # FPS thực từ video
+
+            for frame_index, info in diff_detail.items():
+                start_s = frame_index / fps
+                end_s = (frame_index + 1) / fps
+                time_str = f"{start_s:.1f}s ~ {end_s:.1f}s"
+
+                added_txt = "＋追加: " + ", ".join(info["added"]) if info["added"] else ""
+                removed_txt = "－削除: " + ", ".join(info["removed"]) if info["removed"] else ""
+                diff_text = "\n".join([x for x in [added_txt, removed_txt] if x])
+
+                ws.append([name, "NG", time_str, diff_text])
+
+        wb.save(output_path)
+        print(f"Excel出力完了: {output_path}")
+
+    def main(self, org_video, video_list, result_path):
+        config = self.config
+
+        results_dir = Path("results/VideoComparator")
+        results_dir.mkdir(exist_ok=True)
+
+        clean_folder(results_dir)
+
+        print("\n開始: 一括比較モード")
+        results = {}
+
+        if config.MAX_WORKERS == 1:
+            for v in video_list:
+                name, summary = self.process_video_pair(org_video, v, config)
+                results[name] = summary
+                json.dump(summary, open(results_dir / f"{name}_diff.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+                print(f"{name}: 差分 {summary['diff_frames']} フレーム")
+        else:
+            with ProcessPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
+                futures = [executor.submit(self.process_video_pair, org_video, v, config) for v in video_list]
+                for f in as_completed(futures):
+                    name, summary = f.result()
+                    results[name] = summary
+                    json.dump(summary, open(results_dir / f"{name}_diff.json", "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+                    print(f"{name}: 差分 {summary['diff_frames']} フレーム")
+
+        # --- Excelに出力 ---
+        excel_path = result_path + "/compare_summary.xlsx"
+        self.export_to_excel(results, excel_path)
+
+        return "compare_summary.xlsx"
+
+
