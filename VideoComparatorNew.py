@@ -58,54 +58,55 @@ class VideoObjectAnalyzer:
     # -------------------------------
     #  フレームごとの差分比較
     # -------------------------------
-    def compare_frame_objects(self, data_org, data_des, min_diff_frames=MIN_DIFF_FRAMES):
+    def compare_frame_objects(self, data_org, data_des, stable_threshold=MIN_DIFF_FRAMES):
+        """
+        SCREEN_CLASSESの差分はNフレーム連続で発生した場合のみ有効とする
+        """
         max_index = min(max(data_org.keys()), max(data_des.keys()))
         all_keys = sorted(k for k in data_org.keys() if k <= max_index)
-        diff_raw = {}
+        diff_result = {}
 
-        # --- ステップ1: 各フレームでの差分を抽出 ---
+        # SCREEN_CLASSESの変化追跡
+        screen_diff_counter = {cls: 0 for cls in SCREEN_CLASSES}
+
         for key in all_keys:
             ids_org = set(data_org.get(key, []))
             ids_des = set(data_des.get(key, []))
             added = ids_des - ids_org
             removed = ids_org - ids_des
 
-            # SCREEN_CLASSESに属するものだけを抽出
-            added_screen = [MODEL_CLASS_IDS[i] for i in added if MODEL_CLASS_IDS[i] in SCREEN_CLASSES]
-            removed_screen = [MODEL_CLASS_IDS[i] for i in removed if MODEL_CLASS_IDS[i] in SCREEN_CLASSES]
+            # --- SCREEN_CLASSESの変化を処理 ---
+            confirmed_added = set()
+            confirmed_removed = set()
 
-            # 該当クラスがある場合のみ記録
-            if added_screen or removed_screen:
-                diff_raw[key] = {
+            for cls in SCREEN_CLASSES:
+                in_added = cls in [MODEL_CLASS_IDS[i] for i in added if i < len(MODEL_CLASS_IDS)]
+                in_removed = cls in [MODEL_CLASS_IDS[i] for i in removed if i < len(MODEL_CLASS_IDS)]
+
+                if in_added or in_removed:
+                    screen_diff_counter[cls] += 1
+                else:
+                    screen_diff_counter[cls] = 0
+
+                # 連続Nフレーム超えたら確定
+                if screen_diff_counter[cls] >= stable_threshold:
+                    if in_added:
+                        confirmed_added.add(cls)
+                    elif in_removed:
+                        confirmed_removed.add(cls)
+            # --- 通常クラス ---
+            normal_added = [MODEL_CLASS_IDS[i] for i in added if MODEL_CLASS_IDS[i] not in SCREEN_CLASSES]
+            normal_removed = [MODEL_CLASS_IDS[i] for i in removed if MODEL_CLASS_IDS[i] not in SCREEN_CLASSES]
+
+            added_final = list(set(normal_added) | confirmed_added)
+            removed_final = list(set(normal_removed) | confirmed_removed)
+
+            if added_final or removed_final:
+                diff_result[key] = {
                     "frame_index": key,
-                    "added": [MODEL_CLASS_IDS_JP[i] for i in added if MODEL_CLASS_IDS[i] in SCREEN_CLASSES],
-                    "removed": [MODEL_CLASS_IDS_JP[i] for i in removed if MODEL_CLASS_IDS[i] in SCREEN_CLASSES],
-                    "cls_en": added_screen + removed_screen,
+                    "added": [MODEL_CLASS_IDS[MODEL_CLASS_IDS.index(a)] for a in added_final],
+                    "removed": [MODEL_CLASS_IDS[MODEL_CLASS_IDS.index(r)] for r in removed_final]
                 }
-
-        # --- ステップ2: 連続しているフレームをグループ化 ---
-        diff_result = {}
-        if not diff_raw:
-            return diff_result
-
-        sorted_keys = sorted(diff_raw.keys())
-        current_group = [sorted_keys[0]]
-
-        for i in range(1, len(sorted_keys)):
-            # 前のフレームと連続しているか判定
-            if sorted_keys[i] == sorted_keys[i - 1] + 1:
-                current_group.append(sorted_keys[i])
-            else:
-                # グループ終了 → 一定以上連続していれば結果に追加
-                if len(current_group) >= min_diff_frames:
-                    for k in current_group:
-                        diff_result[k] = diff_raw[k]
-                current_group = [sorted_keys[i]]
-
-        # 最後のグループもチェック
-        if len(current_group) >= min_diff_frames:
-            for k in current_group:
-                diff_result[k] = diff_raw[k]
 
         return diff_result
 
@@ -271,10 +272,11 @@ class VideoObjectAnalyzer:
         excel_path = Path(result_path) / "compare_summary.xlsx"
         self.export_to_excel(results, excel_path)
 
+        excel_name = excel_path.name
         video_paths = [make_web_ready(p) for p in saved_videos]
         video_paths = [str(p).replace("\\", "/") for p in video_paths]
 
-        return excel_path, video_paths
+        return excel_name, video_paths
 
 
 # ===============================

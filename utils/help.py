@@ -11,6 +11,7 @@ def clean_folder(results_dir):
     """
     指定フォルダ内のファイル・サブフォルダを全削除
     """
+    results_dir = Path(results_dir)
     for f in results_dir.glob("*"):
         try:
             if f.is_file() or f.is_symlink():
