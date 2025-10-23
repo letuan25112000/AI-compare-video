@@ -9,7 +9,17 @@
 
 <body>
   <div class="container">
-    <h3>検出された異常一覧</h3>
+    <h3>解析結果の動画</h3>
+    {% for video in video_paths %}
+    <div class="video-item">
+      <p>{{ video.split('/')[-1] }}</p>
+      <video width="480" controls>
+        <source src="{{ url_for('static', filename=video.split('static/')[-1]) }}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+    {% endfor %}
+    <br>
 
     <a href="{{ url_for('download', filename=excel_file) }}" class="btn">結果Excelをダウンロード</a>
 

@@ -72,6 +72,10 @@ def feature1():
 def download(filename):
     return send_from_directory(app.config["RESULT_FOLDER"], filename, as_attachment=True)
 
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["RESULT_FOLDER"], filename)
+
 @app.route("/feature2", methods=["GET", "POST"])
 def feature2():
     if request.method == "POST":
@@ -95,15 +99,16 @@ def feature2():
             file_des.save(filepath_des)
             filepaths_des.append(filepath_des)
 
-        excel_path = process_video_feature_2(filepath_org, filepaths_des, app.config["RESULT_FOLDER"])
+        excel_path, saved_videos = process_video_feature_2(filepath_org, filepaths_des, app.config["RESULT_FOLDER"])
 
         return render_template(
             "result_feature2.html",
             excel_file=excel_path,
+            video_paths=saved_videos
         )
 
     return render_template("feature2.html")
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",debug=True)
+    app.run(host="0.0.0.0",debug=True, threaded=True)
