@@ -1,6 +1,6 @@
 import cv2
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ultralytics import YOLO
 import openpyxl
 from checkPC import SystemConfig
@@ -260,7 +260,7 @@ class VideoObjectAnalyzer:
                 results[name] = summary
                 saved_videos.append(str(Path(result_path) / (Path(v).stem + "_diff.mp4")))
         else:
-            with ProcessPoolExecutor(max_workers=self.pc_config.MAX_WORKERS) as executor:
+            with ThreadPoolExecutor(max_workers=self.pc_config.MAX_WORKERS) as executor:
                 futures = [executor.submit(self.compare_with_base, base_data, v, result_path) for v in video_list]
                 for f in as_completed(futures):
                     name, summary = f.result()

@@ -12,7 +12,7 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
 
 # 動画処理
-def process_video_feature_1(filepath_org, folderpath_des, result_path):
+def process_video_feature(filepath_org, folderpath_des, result_path):
     clean_folder(app.config["RESULT_FOLDER"])
     comparator = VideoObjectAnalyzer()
     result_path = comparator.main(filepath_org, folderpath_des, result_path)
@@ -30,8 +30,8 @@ def download(filename):
 def uploaded_file(filename):
     return send_from_directory(app.config["RESULT_FOLDER"], filename)
 
-@app.route("/feature1", methods=["GET", "POST"])
-def feature1():
+@app.route("/feature", methods=["GET", "POST"])
+def feature():
     if request.method == "POST":
         clean_folder(app.config["UPLOAD_FOLDER"])
         
@@ -52,15 +52,15 @@ def feature1():
             file_des.save(filepath_des)
             filepaths_des.append(filepath_des)
 
-        excel_path, saved_videos = process_video_feature_1(filepath_org, filepaths_des, app.config["RESULT_FOLDER"])
+        excel_path, saved_videos = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"])
 
         return render_template(
-            "result_feature1.html",
+            "result_feature.html",
             excel_file=excel_path,
             video_paths=saved_videos
         )
 
-    return render_template("feature1.html")
+    return render_template("feature.html")
 
 
 if __name__ == "__main__":
