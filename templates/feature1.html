@@ -3,26 +3,29 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>AI検出 - ビデオ異常検知</title>
+  <title>AI検出 - 動画異常検知</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   <style></style>
 </head>
 
 <body>
   <div class="container">
-    <h1>機能① 映像内の異常検出</h1>
-    <form id="uploadForm" action="/feature1" method="POST" enctype="multipart/form-data">
-      <label>処理したいビデオを選択:</label>
-      <input type="file" name="video" accept="video/*" required />
+    <h1>機能➀ 複数の動画比較</h1>
+    <form id="uploadForm" action="/feature2" method="POST" enctype="multipart/form-data">
+      <label>元動画:</label>
+      <input type="file" name="video1" accept="video/*" required />
 
-      <button type="submit">AIでビデオを解析</button>
+      <label>比較動画:</label>
+      <input type="file" name="videos" accept="video/*" multiple required />
+
+      <button type="submit">AIで動画を解析</button>
     </form>
   </div>
 
   <div id="loading" class="loading-overlay">
     <div style="display: flex; align-items: center">
       <div class="spinner"></div>
-      AIでビデオを処理中です。少々お待ちください...
+      AIで動画を処理中です。少々お待ちください...
     </div>
   </div>
 

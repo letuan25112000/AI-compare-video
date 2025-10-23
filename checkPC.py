@@ -10,11 +10,11 @@ class SystemConfig:
             self.IMGSZ = 640
             self.MAX_WORKERS = 4
         else:
-            self.PROCESS_FPS = 2
+            self.PROCESS_FPS = 5
             self.IMGSZ = 480
             self.MAX_WORKERS = 1
 
-        print(f"⚙️  System detected: {self.system_type.upper()}  "
+        print(f"System detected: {self.system_type.upper()}  "
               f"(FPS={self.PROCESS_FPS}, IMG={self.IMGSZ}, WORKERS={self.MAX_WORKERS})")
 
     @staticmethod
