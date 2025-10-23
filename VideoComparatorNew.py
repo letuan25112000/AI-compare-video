@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from ultralytics import YOLO
 import openpyxl
 from checkPC import SystemConfig
-from utils.help import clean_folder, make_web_ready
+from utils.help import apply_excel_format, clean_folder, convert_to_30fps, make_web_ready
 from config import MODEL_PATH, MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP, SCREEN_CLASSES, MIN_DIFF_FRAMES
 
 # ===============================
@@ -15,7 +15,7 @@ class VideoObjectAnalyzer:
         self.CONF_THRESH = conf_thresh
         self.pc_config = config or SystemConfig()
         self.model = YOLO(model_path, task="detect")
-
+    
     # -------------------------------
     #  動画を解析（フレームごとのオブジェクトを返す）
     # -------------------------------
@@ -167,18 +167,26 @@ class VideoObjectAnalyzer:
     # -------------------------------
     #  基準動画との比較処理
     # -------------------------------
-    def compare_with_base(self, base_data, video_path: str, result_path: str):
-        des_data, frames_dict, fps, _, total_frames = self.analyze_video(video_path)
-        diff = self.compare_frame_objects(base_data[0], des_data)
+    def compare_with_origin(self, origin_data, video_path: str, result_path: str):
+        # --- 対象動画を30fpsに変換 ---
+        video_30fps = convert_to_30fps(video_path)
+        
+        try:
+            des_data, frames_dict, fps, _, total_frames = self.analyze_video(video_30fps)
+            diff = self.compare_frame_objects(origin_data[0], des_data)
 
-        output_video = Path(result_path) / (Path(video_path).stem + "_diff.mp4")
-        self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, fps=fps, total_frames=total_frames)
+            output_video = Path(result_path) / (Path(video_path).stem + "_diff.mp4")
+            self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, fps=fps, total_frames=total_frames)
 
-        summary = {
-            "diff_frames": len(diff),
-            "diff_detail": diff,
-            "fps": round(fps, 2)
-        }
+            summary = {
+                "diff_frames": len(diff),
+                "diff_detail": diff,
+                "fps": round(fps, 2)
+            }
+        finally:
+            # fps同期動画の一時ファイルを削除する
+            Path(video_30fps).unlink(missing_ok=True)
+            
         return Path(video_path).name, summary
 
     # -------------------------------
@@ -229,6 +237,7 @@ class VideoObjectAnalyzer:
             for row in merged_entries:
                 ws.append(row)
 
+        apply_excel_format(ws)
         wb.save(output_path)
         print(f"Excel出力完了: {output_path}")
 
@@ -240,35 +249,42 @@ class VideoObjectAnalyzer:
         results_dir.mkdir(parents=True, exist_ok=True)
         clean_folder(results_dir)
 
+        # --- 基準動画を30fpsに変換 ---
+        org_video_30fps = convert_to_30fps(org_video)
+        
         # 基準動画を一度解析
-        base_data = self.analyze_video(org_video)
+        origin_data = self.analyze_video(org_video_30fps)
 
         # 基準動画を描画して保存
-        base_video_path = Path(result_path) / "base_video_boxes.mp4"
+        origin_video_path = Path(result_path) / "origin_video_boxes.mp4"
         self.save_video_with_boxes(
-            base_data[1],
-            output_path=base_video_path,
-            fps=base_data[2],
-            total_frames=base_data[4]
+            origin_data[1],
+            output_path=origin_video_path,
+            fps=origin_data[2],
+            total_frames=origin_data[4]
         )
 
-        saved_videos = [str(base_video_path)]
+        saved_videos = [str(origin_video_path)]
         results = {}
 
         if self.pc_config.MAX_WORKERS == 1:
             for v in video_list:
-                name, summary = self.compare_with_base(base_data, v, result_path)
+                name, summary = self.compare_with_origin(origin_data, v, result_path)
                 results[name] = summary
                 saved_videos.append(str(Path(result_path) / (Path(v).stem + "_diff.mp4")))
         else:
             with ThreadPoolExecutor(max_workers=self.pc_config.MAX_WORKERS) as executor:
-                futures = [executor.submit(self.compare_with_base, base_data, v, result_path) for v in video_list]
+                futures = [executor.submit(self.compare_with_origin, origin_data, v, result_path) for v in video_list]
                 for f in as_completed(futures):
                     name, summary = f.result()
                     results[name] = summary
                     vname = name.rsplit(".", 1)[0]
                     saved_videos.append(str(Path(result_path) / (vname + "_diff.mp4")))
 
+        # fps同期動画の一時ファイルを削除する
+        Path(org_video_30fps).unlink(missing_ok=True)
+        
+        # 結果処理
         excel_path = Path(result_path) / "compare_summary.xlsx"
         self.export_to_excel(results, excel_path)
 
@@ -278,15 +294,14 @@ class VideoObjectAnalyzer:
 
         return excel_name, video_paths
 
-
 # ===============================
 #  実行例
 # ===============================
 if __name__ == "__main__":
     comparator = VideoObjectAnalyzer()
     excel_path, saved_videos = comparator.main(
-        org_video="videos/A_fixed.mp4",
-        video_list=["videos/B_fixed.mp4"],
+        org_video="videos/A.mp4",
+        video_list=["videos/B.mp4"],
         result_path="results/VideoComparator"
     )
 

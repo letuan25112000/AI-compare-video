@@ -3,6 +3,8 @@ from datetime import datetime
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 import subprocess
 from pathlib import Path
+import subprocess
+import tempfile
 
 # =====================================
 # フォルダ内の古いファイルを削除
@@ -37,7 +39,7 @@ def timestamp_file_path(filename, ext):
 # =====================================
 # Excel書式設定
 # =====================================
-def apply_excel_format(self, ws):
+def apply_excel_format(ws):
     """
     Excel表のフォーマットを適用：
     ヘッダーのスタイル、枠線、セルの整列、背景色、自動列幅調整など
@@ -103,4 +105,28 @@ def make_web_ready(input_path):
     ]
 
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return str(output_path)
+
+# =====================================
+# 動画のfps同期
+# =====================================
+def convert_to_30fps(video_path: str) -> str:
+    """
+    入力動画を30FPSに変換して一時ファイルとして保存する
+    """
+    temp_dir = Path(tempfile.gettempdir())
+    output_path = temp_dir / f"{Path(video_path).stem}_30fps.mp4"
+
+    # ffmpeg コマンド
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_path),
+        "-filter:v", "fps=30",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-an",  # 音声を削除
+        str(output_path)
+    ]
+
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return str(output_path)
