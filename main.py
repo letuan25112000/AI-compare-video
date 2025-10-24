@@ -12,9 +12,9 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
 
 # 動画処理
-def process_video_feature(filepath_org, folderpath_des, result_path):
+def process_video_feature(filepath_org, folderpath_des, result_path, fps, process_fps, threshold):
     clean_folder(app.config["RESULT_FOLDER"])
-    comparator = VideoObjectAnalyzer()
+    comparator = VideoObjectAnalyzer(fps=fps, process_fps=process_fps, threshold=threshold)
     excel_name, saved_videos = comparator.main(filepath_org, folderpath_des, result_path)
     return excel_name, saved_videos
 
@@ -35,6 +35,9 @@ def feature():
     if request.method == "POST":
         clean_folder(app.config["UPLOAD_FOLDER"])
         
+        fps = int(request.form.get("fps"))               
+        process_fps = int(request.form.get("process_fps"))
+        threshold = (int(request.form.get("threshold")) / 1000) * process_fps
         file_org = request.files["video1"]
         files_des = request.files.getlist("videos")
 
@@ -52,7 +55,7 @@ def feature():
             file_des.save(filepath_des)
             filepaths_des.append(filepath_des)
 
-        excel_name, saved_videos = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"])
+        excel_name, saved_videos = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold)
 
         return render_template(
             "result_feature.html",

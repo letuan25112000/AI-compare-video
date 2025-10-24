@@ -110,7 +110,7 @@ def make_web_ready(input_path):
 # =====================================
 # 動画のfps同期
 # =====================================
-def convert_to_30fps(video_path: str) -> str:
+def convert_to_nfps(video_path, fps=30):
     """
     入力動画を30FPSに変換して一時ファイルとして保存する
     """
@@ -121,7 +121,7 @@ def convert_to_30fps(video_path: str) -> str:
     cmd = [
         "ffmpeg", "-y",
         "-i", str(video_path),
-        "-filter:v", "fps=30",
+        "-filter:v", f"fps={fps}",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-an",  # 音声を削除

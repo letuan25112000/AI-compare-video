@@ -4,14 +4,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from ultralytics import YOLO
 import openpyxl
 from checkPC import SystemConfig
-from utils.help import apply_excel_format, clean_folder, convert_to_30fps, make_web_ready
-from config import MODEL_PATH, MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP, SCREEN_CLASSES, MIN_DIFF_FRAMES
+from utils.help import apply_excel_format, clean_folder, convert_to_nfps, make_web_ready
+from config import MODEL_PATH, MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP, SCREEN_CLASSES, MIN_DIFF_FRAMES, FPS, PROCESS_FPS
 
 # ===============================
 #  動画オブジェクト解析クラス
 # ===============================
 class VideoObjectAnalyzer:
-    def __init__(self, model_path=MODEL_PATH, conf_thresh=0.6, config=None):
+    def __init__(self, model_path=MODEL_PATH, conf_thresh=0.6, config=None, fps=FPS, process_fps=PROCESS_FPS, threshold=MIN_DIFF_FRAMES):
+        self.FPS = fps
+        self.PROCESS_FPS = process_fps
+        self.MIN_DIFF_FRAMES = threshold
         self.CONF_THRESH = conf_thresh
         self.pc_config = config or SystemConfig()
         self.model = YOLO(model_path, task="detect")
@@ -25,16 +28,13 @@ class VideoObjectAnalyzer:
             raise ValueError(f"動画を開けませんでした: {video_path}")
 
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        interval = max(int(fps // self.pc_config.PROCESS_FPS), 1) if fps > 0 else 1
+        interval = max(int(self.FPS // self.PROCESS_FPS), 1) if self.FPS > 0 else 1
 
         frame_objects = {}
         frames_dict = {}  # 描画用フレーム保存
         frame_index = 0
 
-        print(f"\n{video_path} の解析を開始します (FPS: {fps:.1f}, 総フレーム: {int(cap.get(cv2.CAP_PROP_FRAME_COUNT))})")
+        print(f"\n{video_path} の解析を開始します (FPS: {self.FPS:.1f}, 総フレーム: {int(cap.get(cv2.CAP_PROP_FRAME_COUNT))})")
 
         while True:
             ret, frame = cap.read()
@@ -53,12 +53,12 @@ class VideoObjectAnalyzer:
 
         cap.release()
         print(f"解析完了: {len(frame_objects)} フレーム")
-        return frame_objects, frames_dict, fps, (w, h), frame_count
+        return frame_objects, frames_dict, frame_count
 
     # -------------------------------
     #  フレームごとの差分比較
     # -------------------------------
-    def compare_frame_objects(self, data_org, data_des, stable_threshold=MIN_DIFF_FRAMES):
+    def compare_frame_objects(self, data_org, data_des):
         """
         SCREEN_CLASSESの差分はNフレーム連続で発生した場合のみ有効とする
         """
@@ -89,7 +89,7 @@ class VideoObjectAnalyzer:
                     screen_diff_counter[cls] = 0
 
                 # 連続Nフレーム超えたら確定
-                if screen_diff_counter[cls] >= stable_threshold:
+                if screen_diff_counter[cls] >= self.MIN_DIFF_FRAMES:
                     if in_added:
                         confirmed_added.add(cls)
                     elif in_removed:
@@ -113,7 +113,7 @@ class VideoObjectAnalyzer:
     # -------------------------------
     #  差分を描画した動画を保存
     # -------------------------------
-    def save_video_with_boxes(self, frames_dict, diff_frames=None, output_path="output.mp4", fps=30, total_frames=None):
+    def save_video_with_boxes(self, frames_dict, diff_frames=None, output_path="output.mp4", total_frames=None):
         """
         frames_dict: {frame_index: (frame, boxes)}
         diff_frames: {frame_index: {"added":[], "removed":[]}}
@@ -125,7 +125,7 @@ class VideoObjectAnalyzer:
         # 1つのフレームから動画サイズ取得
         h, w = frames_dict[next(iter(frames_dict))][0].shape[:2]
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
+        out = cv2.VideoWriter(str(output_path), fourcc, self.FPS, (w, h))
 
         sorted_indices = sorted(frames_dict.keys())
         last_frame_data = None
@@ -168,24 +168,24 @@ class VideoObjectAnalyzer:
     #  基準動画との比較処理
     # -------------------------------
     def compare_with_origin(self, origin_data, video_path: str, result_path: str):
-        # --- 対象動画を30fpsに変換 ---
-        video_30fps = convert_to_30fps(video_path)
+        # --- 対象動画をN fpsに変換 ---
+        video_nfps = convert_to_nfps(video_path, self.FPS)
         
         try:
-            des_data, frames_dict, fps, _, total_frames = self.analyze_video(video_30fps)
+            des_data, frames_dict, total_frames = self.analyze_video(video_nfps)
             diff = self.compare_frame_objects(origin_data[0], des_data)
 
             output_video = Path(result_path) / (Path(video_path).stem + "_diff.mp4")
-            self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, fps=fps, total_frames=total_frames)
+            self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, total_frames=total_frames)
 
             summary = {
                 "diff_frames": len(diff),
                 "diff_detail": diff,
-                "fps": round(fps, 2)
+                "fps": round(self.FPS, 2)
             }
         finally:
             # fps同期動画の一時ファイルを削除する
-            Path(video_30fps).unlink(missing_ok=True)
+            Path(video_nfps).unlink(missing_ok=True)
             
         return Path(video_path).name, summary
 
@@ -252,18 +252,17 @@ class VideoObjectAnalyzer:
         clean_folder(results_dir)
 
         # --- 基準動画を30fpsに変換 ---
-        org_video_30fps = convert_to_30fps(org_video)
+        org_video_nfps = convert_to_nfps(org_video, self.FPS)
         
         # 基準動画を一度解析
-        origin_data = self.analyze_video(org_video_30fps)
+        origin_data = self.analyze_video(org_video_nfps)
 
         # 基準動画を描画して保存
         origin_video_path = Path(result_path) / "origin_video_boxes.mp4"
         self.save_video_with_boxes(
             origin_data[1],
             output_path=origin_video_path,
-            fps=origin_data[2],
-            total_frames=origin_data[4]
+            total_frames=origin_data[2]
         )
 
         saved_videos = [str(origin_video_path)]
@@ -284,7 +283,7 @@ class VideoObjectAnalyzer:
                     saved_videos.append(str(Path(result_path) / (vname + "_diff.mp4")))
 
         # fps同期動画の一時ファイルを削除する
-        Path(org_video_30fps).unlink(missing_ok=True)
+        Path(org_video_nfps).unlink(missing_ok=True)
         
         # 結果処理
         excel_path = Path(result_path) / "compare_summary.xlsx"
@@ -300,7 +299,7 @@ class VideoObjectAnalyzer:
 #  実行例
 # ===============================
 if __name__ == "__main__":
-    comparator = VideoObjectAnalyzer()
+    comparator = VideoObjectAnalyzer(fps=30, process_fps=5, threshold=5)
     excel_path, saved_videos = comparator.main(
         org_video="videos/A_fixed.mp4",
         video_list=["videos/B_fixed.mp4"],

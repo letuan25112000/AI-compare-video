@@ -12,10 +12,19 @@
   <div class="container">
     <h1>複数の動画比較</h1>
     <form id="uploadForm" action="/feature" method="POST" enctype="multipart/form-data">
-      <label>元動画:</label>
+      <label>動画FPS:</label>
+      <input type="number" name="fps" accept="video/*" required />
+
+      <label>1秒に処理されるフレーム数:</label>
+      <input type="number" name="process_fps" accept="video/*" required />
+
+      <label>画面遷移を判断するまでの待機時間 (ms):</label>
+      <input type="number" name="threshold" accept="video/*" required />
+
+      <label>元の動画:</label>
       <input type="file" name="video1" accept="video/*" required />
 
-      <label>比較動画:</label>
+      <label>先の動画:</label>
       <input type="file" name="videos" accept="video/*" multiple required />
 
       <button type="submit">AIで動画を解析</button>
