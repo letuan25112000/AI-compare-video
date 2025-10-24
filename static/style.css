@@ -1,3 +1,9 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   font-family: "Segoe UI", Tahoma, sans-serif;
   background: linear-gradient(135deg, #141e30, #243b55);
@@ -14,9 +20,10 @@ body {
   backdrop-filter: blur(10px);
   border-radius: 16px;
   padding: 40px 50px;
-  width: 420px;
+  max-width: 550px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   text-align: center;
+  margin: 10px;
 }
 
 h1 {
@@ -131,6 +138,8 @@ button,
   border-radius: 8px;
   cursor: pointer;
   text-decoration: none;
+  width: fit-content;
+  display: inline-block;
 }
 
 button:hover,

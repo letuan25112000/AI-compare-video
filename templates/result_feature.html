@@ -5,26 +5,145 @@
   <meta charset="UTF-8" />
   <title>解析結果 - AI映像検出</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    .video-item {
+      width: 100%;
+      margin: 20px 0;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .video-item.master .box-video {
+      padding: 3px;
+      border: 3px solid transparent;
+      border-color: #c80025;
+      box-shadow: 0 0 15px rgba(200, 13, 0, 0.6);
+    }
+
+    video {
+      width: 100%;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .set-master-btn {
+      margin-top: 5px;
+      background-color: #c80025;
+    }
+
+    .set-master-btn:hover {
+      background: #a3001e;
+    }
+
+    .box-button {
+      margin: 20px 0;
+    }
+  </style>
 </head>
 
 <body>
   <div class="container">
-    <h3>解析結果の動画</h3>
+    <h3>解析結果の動画一覧</h3>
+
+    <div class="box-button">
+      <a href="{{ url_for('download', filename=excel_file) }}" class="btn">解析結果（Excel）をダウンロード</a>
+      <a href="{{ url_for('index') }}" class="btn">トップへ戻る</a>
+    </div>
+    <hr>
+
     {% for video in video_paths %}
     <div class="video-item">
       <p>{{ video.split('/')[-1] }}</p>
-      <video width="480" controls>
-        <source src="{{ url_for('static', filename=video.split('static/')[-1]) }}" type="video/mp4">
-        Your browser does not support the video tag.
-      </video>
+      <div class="box-video">
+        <video width="480" controls preload="metadata">
+          <source src="{{ url_for('static', filename=video.split('static/')[-1]) }}" type="video/mp4">
+          このブラウザは video タグをサポートしていません。
+        </video>
+      </div>
+      <button class="btn set-master-btn">メイン動画に設定</button>
     </div>
     {% endfor %}
-    <br>
 
-    <a href="{{ url_for('download', filename=excel_file) }}" class="btn">結果Excelをダウンロード</a>
-
-    <a href="{{ url_for('index') }}" class="btn">戻る</a>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const videoItems = document.querySelectorAll(".video-item");
+      const videos = document.querySelectorAll("video");
+      if (videos.length === 0) return;
+
+      let master = videos[0];
+      let masterItem = videoItems[0];
+      masterItem.classList.add("master");
+
+      function setMaster(newMaster) {
+        videos.forEach(v => v.pause());
+        master = newMaster;
+
+        videoItems.forEach(item => item.classList.remove("master"));
+        const parentItem = newMaster.closest(".video-item");
+        parentItem.classList.add("master");
+
+        console.log("🟢 メイン動画を変更:", newMaster.querySelector("source").src);
+      }
+
+      function bindSyncEvents() {
+        // 古いイベントを削除
+        videos.forEach(v => v.onplay = v.onpause = v.onseeked = v.ontimeupdate = null);
+
+        master.onplay = () => {
+          videos.forEach(v => {
+            if (v !== master) {
+              v.currentTime = master.currentTime;
+              if (v.paused) v.play().catch(() => { });
+            }
+          });
+        };
+
+        master.onpause = () => {
+          videos.forEach(v => {
+            if (v !== master && !v.paused) v.pause();
+          });
+        };
+
+        master.onseeked = () => {
+          videos.forEach(v => {
+            if (v !== master) v.currentTime = master.currentTime;
+          });
+        };
+
+        // 同期頻度を減らす：0.3秒ごと、かつ再生中のみ
+        let lastSync = 0;
+        master.ontimeupdate = () => {
+          const now = performance.now();
+          if (now - lastSync < 300) return; // 0.3秒に1回
+          lastSync = now;
+
+          if (!master.paused) {
+            videos.forEach(v => {
+              if (v !== master && Math.abs(v.currentTime - master.currentTime) > 0.3) {
+                v.currentTime = master.currentTime;
+              }
+            });
+          }
+        };
+      }
+
+      bindSyncEvents();
+
+      // 「メイン動画に設定」ボタンの処理
+      videoItems.forEach(item => {
+        const btn = item.querySelector(".set-master-btn");
+        const video = item.querySelector("video");
+
+        btn.addEventListener("click", () => {
+          setMaster(video);
+          bindSyncEvents();
+        });
+      });
+    });
+  </script>
+
 </body>
 
 </html>

@@ -198,6 +198,8 @@ class VideoObjectAnalyzer:
         ws.title = "比較結果"
         ws.append(["動画名", "判定", "時間範囲", "差分内容"])
 
+        jp_map = dict(zip(MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP))
+
         for name, summary in results.items():
             fps = summary.get("fps", 30)
             sorted_frames = sorted(summary["diff_detail"].items())
@@ -208,8 +210,8 @@ class VideoObjectAnalyzer:
             end_frame = None
 
             for frame_index, info in sorted_frames:
-                added_txt = "＋追加: " + ", ".join(info["added"]) if info["added"] else ""
-                removed_txt = "－削除: " + ", ".join(info["removed"]) if info["removed"] else ""
+                added_txt  = "＋追加: " + ", ".join(jp_map.get(x, x) for x in info["added"]) if info["added"] else ""
+                removed_txt = "－削除: " + ", ".join(jp_map.get(x, x) for x in info["removed"]) if info["removed"] else ""
                 diff_text = "\n".join([x for x in [added_txt, removed_txt] if x])
 
                 if diff_text == prev_text:
@@ -300,9 +302,9 @@ class VideoObjectAnalyzer:
 if __name__ == "__main__":
     comparator = VideoObjectAnalyzer()
     excel_path, saved_videos = comparator.main(
-        org_video="videos/A.mp4",
-        video_list=["videos/B.mp4"],
-        result_path="results/VideoComparator"
+        org_video="videos/A_fixed.mp4",
+        video_list=["videos/B_fixed.mp4"],
+        result_path="results"
     )
 
     print(excel_path, saved_videos)
