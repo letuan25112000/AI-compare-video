@@ -66,6 +66,12 @@
 
 <body>
   <div class="container">
+    <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
+      <button type="submit" class="exit-btn">
+        終了
+      </button>
+    </form>
+
     <h3>解析結果の動画一覧</h3>
 
     <div class="box-button">
@@ -91,11 +97,8 @@
           </video>
         </div>
         {% endfor %}
-
       </div>
-
     </div>
-
   </div>
 
   <script>

@@ -10,6 +10,11 @@
 
 <body>
   <div class="container">
+    <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
+      <button type="submit" class="exit-btn">
+        終了
+      </button>
+    </form>
     <h1>複数の動画比較</h1>
     <form id="uploadForm" action="/feature" method="POST" enctype="multipart/form-data">
       <label>動画FPS:</label>
@@ -27,7 +32,7 @@
       <label>先の動画:</label>
       <input type="file" name="videos" accept="video/*" multiple required />
 
-      <button type="submit">AIで動画を解析</button>
+      <button type="submit" class="btn">AIで動画を解析</button>
     </form>
   </div>
 

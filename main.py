@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, send_from_directory
 from datetime import datetime
 from VideoComparatorNew import VideoObjectAnalyzer
 from utils.help import clean_folder
+import webbrowser
+import threading
+import time
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "static/uploads"
@@ -66,5 +69,21 @@ def feature():
 
     return render_template("feature.html")
 
+# ====== SHUTDOWN SERVER ======
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    def stop_server():
+        time.sleep(1)  
+        os._exit(0)  
+
+    threading.Thread(target=stop_server).start()
+    return "終了されました..."
+
+
+# ====== AUTO OPEN BROWSER ======
+def open_browser():
+    webbrowser.open_new("http://127.0.0.1:5000")
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",debug=True, threaded=True)
+    threading.Timer(1.0, open_browser).start()
+    app.run(host="127.0.0.1", port=5000, debug=True, threaded=True)

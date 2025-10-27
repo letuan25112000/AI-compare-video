@@ -24,10 +24,19 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   text-align: center;
   margin: 10px;
+  padding-top: 90px;
+  position: relative;
+}
+
+p {
+  color: #ccc;
+  font-size: 15px;
+  margin-bottom: 35px;
+  line-height: 1.2;
 }
 
 h1 {
-  font-size: 1.6em;
+  font-size: 1.8em;
   margin-bottom: 25px;
 }
 
@@ -36,6 +45,22 @@ label {
   display: block;
   text-align: left;
   margin-bottom: 8px;
+}
+
+.form-exit {
+  width: fit-content;
+  height: fit-content;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.exit-btn {
+  background: red;
+  color: white;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
 }
 
 input[type="text"],
@@ -76,20 +101,7 @@ input[type="file"]::file-selector-button:hover {
 }
 
 button {
-  background: linear-gradient(135deg, #00bcd4, #2196f3);
-  color: white;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 10px;
-  font-size: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-}
-
-button:hover {
-  background: linear-gradient(135deg, #0097a7, #1976d2);
-  transform: translateY(-2px);
 }
 
 .loading-overlay {
@@ -131,22 +143,22 @@ button:hover {
   color: #ccc;
 }
 
-button,
 .btn {
-  background: #00bcd4;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  text-decoration: none;
-  width: fit-content;
   display: inline-block;
+  background: linear-gradient(135deg, #00bcd4, #2196f3);
+  color: white;
+  text-decoration: none;
+  padding: 15px 20px;
+  border-radius: 10px;
+  font-size: 16px;
+  margin-bottom: 15px;
+  transition: all 0.3s ease;
+  font-weight: 500;
 }
 
-button:hover,
 .btn:hover {
-  background: #0097a7;
+  background: linear-gradient(135deg, #0097a7, #1976d2);
+  transform: translateY(-2px);
 }
 
 ul {
