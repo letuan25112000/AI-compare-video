@@ -265,7 +265,7 @@ class VideoObjectAnalyzer:
             total_frames=origin_data[2]
         )
 
-        saved_videos = [str(origin_video_path)]
+        saved_videos = []
         results = {}
 
         if self.pc_config.MAX_WORKERS == 1:
@@ -290,20 +290,22 @@ class VideoObjectAnalyzer:
         self.export_to_excel(results, excel_path)
 
         excel_name = excel_path.name
+        org_path = make_web_ready(str(origin_video_path))
+        org_path = str(org_path).replace("\\", "/")
         video_paths = [make_web_ready(p) for p in saved_videos]
         video_paths = [str(p).replace("\\", "/") for p in video_paths]
 
-        return excel_name, video_paths
+        return excel_name, org_path, video_paths
 
 # ===============================
 #  実行例
 # ===============================
 if __name__ == "__main__":
     comparator = VideoObjectAnalyzer(fps=30, process_fps=5, threshold=5)
-    excel_path, saved_videos = comparator.main(
+    excel_path, org_path, saved_videos = comparator.main(
         org_video="videos/A_fixed.mp4",
         video_list=["videos/B_fixed.mp4"],
         result_path="results"
     )
 
-    print(excel_path, saved_videos)
+    print(excel_path, org_path, saved_videos)

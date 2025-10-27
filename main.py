@@ -15,8 +15,8 @@ os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
 def process_video_feature(filepath_org, folderpath_des, result_path, fps, process_fps, threshold):
     clean_folder(app.config["RESULT_FOLDER"])
     comparator = VideoObjectAnalyzer(fps=fps, process_fps=process_fps, threshold=threshold)
-    excel_name, saved_videos = comparator.main(filepath_org, folderpath_des, result_path)
-    return excel_name, saved_videos
+    excel_name, org_path, saved_videos = comparator.main(filepath_org, folderpath_des, result_path)
+    return excel_name, org_path, saved_videos
 
 @app.route("/")
 def index():
@@ -55,16 +55,16 @@ def feature():
             file_des.save(filepath_des)
             filepaths_des.append(filepath_des)
 
-        excel_name, saved_videos = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold)
+        excel_name, org_path, saved_videos = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold)
 
         return render_template(
             "result_feature.html",
             excel_file=excel_name,
+            org_path=org_path,
             video_paths=saved_videos
         )
 
     return render_template("feature.html")
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0",debug=True, threaded=True)

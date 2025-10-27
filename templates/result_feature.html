@@ -6,6 +6,29 @@
   <title>解析結果 - AI映像検出</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   <style>
+    .container {
+      min-width: 100%;
+    }
+
+    .box-video {
+      width: 100%;
+      position: relative;
+      display: flex;
+      gap: 10px;
+    }
+
+    .org-video {
+      width: 50% !important;
+      position: sticky;
+      top: 10px;
+      height: fit-content;
+    }
+
+    .compare-video {
+      width: 50%;
+      padding-top: 8px;
+    }
+
     .video-item {
       width: 100%;
       margin: 20px 0;
@@ -13,11 +36,11 @@
       text-align: center;
     }
 
-    .video-item.master .box-video {
-      padding: 3px;
+    .video-item.master {
+      padding: 5px;
       border: 3px solid transparent;
-      border-color: #c80025;
-      box-shadow: 0 0 15px rgba(200, 13, 0, 0.6);
+      border-color: #00bcd4;
+      box-shadow: 0 0 15px rgba(0, 178, 187, 0.6);
     }
 
     video {
@@ -51,18 +74,27 @@
     </div>
     <hr>
 
-    {% for video in video_paths %}
-    <div class="video-item">
-      <p>{{ video.split('/')[-1] }}</p>
-      <div class="box-video">
+    <div class="box-video">
+      <div class="video-item org-video">
+        <p>{{ org_path.split('/')[-1] }}</p>
         <video width="480" controls preload="metadata">
-          <source src="{{ url_for('static', filename=video.split('static/')[-1]) }}" type="video/mp4">
+          <source src="{{ url_for('static', filename=org_path.split('static/')[-1]) }}" type="video/mp4">
           このブラウザは video タグをサポートしていません。
         </video>
       </div>
-      <button class="btn set-master-btn">メイン動画に設定</button>
+      <div class="compare-video">
+        {% for video in video_paths %} <div class="video-item">
+          <p>{{ video.split('/')[-1] }}</p>
+          <video width="480" controls preload="metadata">
+            <source src="{{ url_for('static', filename=video.split('static/')[-1]) }}" type="video/mp4">
+            このブラウザは video タグをサポートしていません。
+          </video>
+        </div>
+        {% endfor %}
+
+      </div>
+
     </div>
-    {% endfor %}
 
   </div>
 
@@ -77,7 +109,6 @@
       masterItem.classList.add("master");
 
       function setMaster(newMaster) {
-        videos.forEach(v => v.pause());
         master = newMaster;
 
         videoItems.forEach(item => item.classList.remove("master"));
@@ -133,12 +164,20 @@
 
       // 「メイン動画に設定」ボタンの処理
       videoItems.forEach(item => {
-        const btn = item.querySelector(".set-master-btn");
         const video = item.querySelector("video");
 
-        btn.addEventListener("click", () => {
-          setMaster(video);
-          bindSyncEvents();
+        video.addEventListener("click", () => {
+          if (video === master) {
+            // masterなら再生/停止切り替え
+            if (video.paused) {
+              video.pause();
+            } else {
+              video.play();
+            }
+          } else {
+            setMaster(video);
+            bindSyncEvents();
+          }
         });
       });
     });
