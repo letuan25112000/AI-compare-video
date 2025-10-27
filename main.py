@@ -1,9 +1,11 @@
 import os
+import socket
+import webbrowser
+from threading import Timer
 from flask import Flask, render_template, request, send_from_directory
 from datetime import datetime
 from VideoComparatorNew import VideoObjectAnalyzer
 from utils.help import clean_folder
-import webbrowser
 import threading
 import time
 
@@ -13,6 +15,15 @@ app.config["RESULT_FOLDER"] = "static/results"
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
+
+def find_free_port(default_port=5000):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))  # 0 means: let OS pick a free port
+        return s.getsockname()[1]
+
+def open_browser(port):
+    url = f"http://127.0.0.1:{port}"
+    webbrowser.open_new(url)
 
 # 動画処理
 def process_video_feature(filepath_org, folderpath_des, result_path, fps, process_fps, threshold):
@@ -79,11 +90,8 @@ def shutdown():
     threading.Thread(target=stop_server).start()
     return "終了されました..."
 
-
-# ====== AUTO OPEN BROWSER ======
-def open_browser():
-    webbrowser.open_new("http://127.0.0.1:5000")
-
 if __name__ == "__main__":
-    threading.Timer(1.0, open_browser).start()
-    app.run(host="127.0.0.1", port=5000, debug=True, threaded=True)
+    port = find_free_port(5000)
+    Timer(1, lambda: open_browser(port)).start()
+    print(f"✅ Server running on http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
