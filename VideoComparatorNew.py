@@ -44,7 +44,7 @@ class VideoObjectAnalyzer:
                 frame_index += 1
                 continue
 
-            results = self.model(frame, imgsz=self.pc_config.IMGSZ, verbose=False)[0]
+            results = self.model(frame, imgsz=self.pc_config.IMGSZ, verbose=False, device=self.pc_config.DEVICE)[0]
             class_ids = [int(box.cls[0]) for box in results.boxes if float(box.conf[0]) >= self.CONF_THRESH]
 
             frame_objects[frame_index] = list(set(class_ids))

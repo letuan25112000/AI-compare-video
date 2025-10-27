@@ -3,7 +3,8 @@ import torch
 
 class SystemConfig:
     def __init__(self):
-        self.system_type = self.detect_system()
+        self.system_type = self.detect_system_type()
+        self.DEVICE = self.detect_device()
 
         if self.system_type == "strong":
             self.PROCESS_FPS = 10
@@ -14,14 +15,26 @@ class SystemConfig:
             self.IMGSZ = 480
             self.MAX_WORKERS = 1
 
-        print(f"System detected: {self.system_type.upper()}  "
-              f"(FPS={self.PROCESS_FPS}, IMG={self.IMGSZ}, WORKERS={self.MAX_WORKERS})")
+        print(f"System detected: {self.system_type.upper()} "
+              f"(FPS={self.PROCESS_FPS}, IMG={self.IMGSZ}, WORKERS={self.MAX_WORKERS}, DEVICE={self.DEVICE})")
 
+    # ======================================================
     @staticmethod
-    def detect_system():
-        cpu_cores = psutil.cpu_count(logical=False)
+    def detect_system_type():
+        cpu_cores = psutil.cpu_count(logical=False) or 1
         ram_gb = psutil.virtual_memory().total / (1024 ** 3)
-        has_gpu = torch.cuda.is_available()
+        has_gpu = torch.cuda.is_available() or torch.backends.mps.is_available()
+
         if has_gpu or (cpu_cores >= 8 and ram_gb >= 16):
             return "strong"
         return "weak"
+
+    # ======================================================
+    @staticmethod
+    def detect_device():
+        if torch.cuda.is_available():
+            return "cuda"
+        elif torch.backends.mps.is_available():
+            return "mps"
+        else:
+            return "cpu"
