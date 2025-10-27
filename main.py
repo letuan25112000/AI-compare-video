@@ -1,4 +1,7 @@
 import os
+import socket
+import webbrowser
+from threading import Timer
 from flask import Flask, render_template, request, send_from_directory
 from datetime import datetime
 from VideoComparatorNew import VideoObjectAnalyzer
@@ -10,6 +13,15 @@ app.config["RESULT_FOLDER"] = "static/results"
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
+
+def find_free_port(default_port=5000):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))  # 0 means: let OS pick a free port
+        return s.getsockname()[1]
+
+def open_browser(port):
+    url = f"http://127.0.0.1:{port}"
+    webbrowser.open_new(url)
 
 # 動画処理
 def process_video_feature(filepath_org, folderpath_des, result_path, fps, process_fps, threshold):
@@ -67,4 +79,7 @@ def feature():
     return render_template("feature.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",debug=True, threaded=True)
+    port = find_free_port(5000)
+    Timer(1, lambda: open_browser(port)).start()
+    print(f"✅ Server running on http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
