@@ -6,6 +6,7 @@ import openpyxl
 from checkPC import SystemConfig
 from utils.help import apply_excel_format, clean_folder, convert_to_nfps, make_web_ready
 from config import MODEL_PATH, MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP, SCREEN_CLASSES, MIN_DIFF_FRAMES, FPS, PROCESS_FPS
+import time
 
 # ===============================
 #  動画オブジェクト解析クラス
@@ -31,28 +32,47 @@ class VideoObjectAnalyzer:
         interval = max(int(self.FPS // self.PROCESS_FPS), 1) if self.FPS > 0 else 1
 
         frame_objects = {}
-        frames_dict = {}  # 描画用フレーム保存
+        frames_dict = {}
         frame_index = 0
 
-        print(f"\n{video_path} の解析を開始します (FPS: {self.FPS:.1f}, 総フレーム: {int(cap.get(cv2.CAP_PROP_FRAME_COUNT))})")
+        print(f"\n{video_path} の解析を開始します (FPS: {self.FPS:.1f}, 総フレーム: {frame_count})")
+
+        # --- Timing start ---
+        start_time = time.time()
+        processed_frames = 0
+        total_frame_time = 0.0
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
+
             if frame_index % interval != 0:
                 frame_index += 1
                 continue
 
+            t1 = time.time()
             results = self.model(frame, imgsz=self.pc_config.IMGSZ, verbose=False, device=self.pc_config.DEVICE)[0]
-            class_ids = [int(box.cls[0]) for box in results.boxes if float(box.conf[0]) >= self.CONF_THRESH]
+            t2 = time.time()
+            total_frame_time += (t2 - t1)
+            processed_frames += 1
 
+            class_ids = [int(box.cls[0]) for box in results.boxes if float(box.conf[0]) >= self.CONF_THRESH]
             frame_objects[frame_index] = list(set(class_ids))
             frames_dict[frame_index] = (frame.copy(), results.boxes)
             frame_index += 1
 
         cap.release()
-        print(f"解析完了: {len(frame_objects)} フレーム")
+
+        # --- Timing end ---
+        end_time = time.time()
+        total_time = end_time - start_time
+        avg_frame_time = total_frame_time / processed_frames if processed_frames > 0 else 0
+
+        print(f"解析完了: {processed_frames} フレーム / {frame_count} フレーム中")
+        print(f"総処理時間: {total_time:.2f} 秒 ({total_time/60:.2f} 分)")
+        print(f"1フレームあたり平均処理時間: {avg_frame_time:.3f} 秒")
+
         return frame_objects, frames_dict, frame_count
 
     # -------------------------------
