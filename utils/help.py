@@ -5,6 +5,11 @@ import subprocess
 from pathlib import Path
 import subprocess
 import tempfile
+import os
+import shutil
+import sys
+
+from config import FFMPEG_PATH
 
 # =====================================
 # フォルダ内の古いファイルを削除
@@ -95,7 +100,7 @@ def make_web_ready(input_path):
     output_path = input_path.with_name(input_path.stem + "_web.mp4")
 
     cmd = [
-        "ffmpeg",
+        FFMPEG_PATH,
         "-y",                # 既存ファイルを上書き
         "-i", str(input_path),
         "-vcodec", "libx264",
@@ -119,7 +124,7 @@ def convert_to_nfps(video_path, fps=30):
 
     # ffmpeg コマンド
     cmd = [
-        "ffmpeg", "-y",
+        FFMPEG_PATH, "-y",
         "-i", str(video_path),
         "-filter:v", f"fps={fps}",
         "-c:v", "libx264",

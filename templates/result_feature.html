@@ -84,7 +84,7 @@
       <div class="video-item org-video">
         <p>{{ org_path.split('/')[-1] }}</p>
         <video width="480" controls preload="metadata">
-          <source src="{{ url_for('static', filename=org_path.split('static/')[-1]) }}" type="video/mp4">
+          <source src="{{ url_for('results_file', filename=org_path.split('results/')[-1]) }}" type="video/mp4">
           このブラウザは video タグをサポートしていません。
         </video>
       </div>
@@ -92,7 +92,7 @@
         {% for video in video_paths %} <div class="video-item">
           <p>{{ video.split('/')[-1] }}</p>
           <video width="480" controls preload="metadata">
-            <source src="{{ url_for('static', filename=video.split('static/')[-1]) }}" type="video/mp4">
+            <source src="{{ url_for('results_file', filename=video.split('results/')[-1]) }}" type="video/mp4">
             このブラウザは video タグをサポートしていません。
           </video>
         </div>

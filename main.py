@@ -5,16 +5,25 @@ from threading import Timer
 from flask import Flask, render_template, request, send_from_directory
 from datetime import datetime
 from VideoComparatorNew import VideoObjectAnalyzer
+from config import FFMPEG_PATH, RESULT_DIR, STATIC_DIR, TEMPLATE_DIR, UPLOAD_DIR
 from utils.help import clean_folder
 import threading
 import time
+import os
+import sys
+import subprocess
 
-app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "static/uploads"
-app.config["RESULT_FOLDER"] = "static/results"
 
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-os.makedirs(app.config["RESULT_FOLDER"], exist_ok=True)
+# Make sure runtime folders exist
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(RESULT_DIR, exist_ok=True)
+
+# -----------------------------
+# Initialize Flask
+# -----------------------------
+app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
+app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
+app.config["RESULT_FOLDER"] = RESULT_DIR
 
 def find_free_port(default_port=5000):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -39,6 +48,10 @@ def index():
 @app.route("/download/<filename>")
 def download(filename):
     return send_from_directory(app.config["RESULT_FOLDER"], filename, as_attachment=True)
+
+@app.route("/results/<path:filename>")
+def results_file(filename):
+    return send_from_directory(app.config["RESULT_FOLDER"], filename)
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
@@ -102,6 +115,8 @@ def shutdown():
     return "終了されました..."
 
 if __name__ == "__main__":
+    # Example usage
+    subprocess.run([FFMPEG_PATH, "-version"])
     port = find_free_port(5000)
     Timer(1, lambda: open_browser(port)).start()
     print(f"✅ Server running on http://127.0.0.1:{port}")
