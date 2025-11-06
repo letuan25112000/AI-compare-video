@@ -12,6 +12,7 @@ import time
 import os
 import sys
 import subprocess
+import json
 
 
 # Make sure runtime folders exist
@@ -38,8 +39,12 @@ def open_browser(port):
 def process_video_feature(filepath_org, folderpath_des, result_path, fps, process_fps, threshold, ai_model_path):
     clean_folder(app.config["RESULT_FOLDER"])
     comparator = VideoObjectAnalyzer(model_path=ai_model_path,fps=fps, process_fps=process_fps, threshold=threshold)
-    excel_name, org_path, saved_videos = comparator.main(filepath_org, folderpath_des, result_path)
-    return excel_name, org_path, saved_videos
+    try:
+        excel_name, org_path, saved_videos, frame_data = comparator.main(filepath_org, folderpath_des, result_path)
+        return excel_name, org_path, saved_videos, frame_data
+    except Exception as e:
+        print(f"処理エラー: {e}")
+        raise
 
 @app.route("/")
 def index():
@@ -93,16 +98,31 @@ def feature():
             file_des.save(filepath_des)
             filepaths_des.append(filepath_des)
 
-        excel_name, org_path, saved_videos = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold, ai_model_path)
+        try:
+            excel_name, org_path, saved_videos, frame_data = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold, ai_model_path)
 
-        return render_template(
-            "result_feature.html",
-            excel_file=excel_name,
-            org_path=org_path,
-            video_paths=saved_videos
-        )
+            return render_template(
+                "result_feature.html",
+                excel_file=excel_name,
+                org_path=org_path,
+                video_paths=saved_videos,
+                frame_data=frame_data or []
+            )
+        except Exception as e:
+            return f"処理中にエラーが発生しました: {str(e)}"
 
     return render_template("feature.html")
+
+@app.route("/diff_frames")
+def diff_frames():
+    """差分フレーム表示ページ"""
+    frame_json_path = os.path.join(app.config["RESULT_FOLDER"], "diff_frames.json")
+    frame_data = []
+    if os.path.exists(frame_json_path):
+        with open(frame_json_path, 'r', encoding='utf-8') as f:
+            frame_data = json.load(f)
+    
+    return render_template("diff_frames.html", frame_data=frame_data)
 
 # ====== SHUTDOWN SERVER ======
 @app.route("/shutdown", methods=["POST"])

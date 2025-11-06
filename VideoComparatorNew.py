@@ -7,6 +7,8 @@ from checkPC import SystemConfig
 from utils.help import apply_excel_format, clean_folder, convert_to_nfps, make_web_ready
 from config import MODEL_PATH, MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP, SCREEN_CLASSES, MIN_DIFF_FRAMES, FPS, PROCESS_FPS
 import time
+import json
+import shutil
 
 # ===============================
 #  動画オブジェクト解析クラス
@@ -19,6 +21,14 @@ class VideoObjectAnalyzer:
         self.CONF_THRESH = conf_thresh
         self.pc_config = config or SystemConfig()
         self.model = YOLO(model_path, task="detect")
+        self.temp_files = []  # 一時ファイルを管理
+    
+    def cleanup_temp_files(self):
+        """一時ファイルを削除"""
+        for temp_file in self.temp_files:
+            if Path(temp_file).exists():
+                Path(temp_file).unlink(missing_ok=True)
+        self.temp_files = []
     
     # -------------------------------
     #  動画を解析（フレームごとのオブジェクトを返す）
@@ -185,11 +195,64 @@ class VideoObjectAnalyzer:
         print(f"動画保存完了: {output_path}")
 
     # -------------------------------
-    #  基準動画との比較処理
+    #  特定のフレームを画像として保存
     # -------------------------------
-    def compare_with_origin(self, origin_data, video_path: str, result_path: str):
+    def extract_frame_as_image(self, video_path: str, frame_time: float, output_path: str):
+        """指定した時間のフレームを画像として保存"""
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError(f"動画を開けませんでした: {video_path}")
+        
+        # フレーム時間をフレーム番号に変換
+        frame_number = int(frame_time * self.FPS)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+        
+        ret, frame = cap.read()
+        if ret:
+            cv2.imwrite(str(output_path), frame)
+            print(f"フレーム保存: {output_path} (時間: {frame_time}s)")
+        else:
+            print(f"フレーム抽出失敗: {video_path} at {frame_time}s")
+        
+        cap.release()
+        return ret
+
+    # -------------------------------
+    #  差分フレームの画像を抽出
+    # -------------------------------
+    def extract_diff_frames(self, org_video: str, compare_video: str, diff_summary: dict, result_path: Path, video_name: str):
+        """最初の差分フレームを画像として抽出"""
+        if not diff_summary.get("diff_detail"):
+            return None
+        
+        # 最初の差分フレームを取得
+        first_diff_frame = min(diff_summary["diff_detail"].keys())
+        frame_time = first_diff_frame / self.FPS
+        
+        # 元動画と比較動画のフレームを抽出
+        org_frame_path = result_path / f"{Path(video_name).stem}_org_frame.jpg"
+        compare_frame_path = result_path / f"{Path(video_name).stem}_compare_frame.jpg"
+        
+        # フレーム抽出
+        self.extract_frame_as_image(org_video, frame_time, org_frame_path)
+        self.extract_frame_as_image(compare_video, frame_time, compare_frame_path)
+        
+        return {
+            "video_name": video_name,
+            "org_frame": org_frame_path.name,
+            "compare_frame": compare_frame_path.name,
+            "frame_time": frame_time,
+            "diff_details": diff_summary["diff_detail"][first_diff_frame]
+        }
+
+    # -------------------------------
+    #  基準動画との比較処理（シングルスレッド用）
+    # -------------------------------
+    def compare_with_origin_single(self, origin_data, video_path: str, result_path: str, org_video_path: str):
+        """シングルスレッド用の比較処理"""
         # --- 対象動画をN fpsに変換 ---
         video_nfps = convert_to_nfps(video_path, self.FPS)
+        self.temp_files.append(video_nfps)  # 一時ファイルとして登録
         
         try:
             des_data, frames_dict, total_frames = self.analyze_video(video_nfps)
@@ -203,11 +266,44 @@ class VideoObjectAnalyzer:
                 "diff_detail": diff,
                 "fps": round(self.FPS, 2)
             }
-        finally:
-            # fps同期動画の一時ファイルを削除する
-            Path(video_nfps).unlink(missing_ok=True)
             
-        return Path(video_path).name, summary
+            # 差分フレーム画像を抽出
+            frame_data = self.extract_diff_frames(org_video_path, video_path, summary, Path(result_path), Path(video_path).name)
+            
+        except Exception as e:
+            raise e
+            
+        return Path(video_path).name, summary, frame_data
+
+    # -------------------------------
+    #  基準動画との比較処理（マルチスレッド用）
+    # -------------------------------
+    def compare_with_origin_multi(self, origin_data, video_path: str, result_path: str, org_video_nfps: str):
+        """マルチスレッド用の比較処理 - 元動画は事前変換済み"""
+        # --- 対象動画をN fpsに変換 ---
+        video_nfps = convert_to_nfps(video_path, self.FPS)
+        self.temp_files.append(video_nfps)  # 一時ファイルとして登録
+        
+        try:
+            des_data, frames_dict, total_frames = self.analyze_video(video_nfps)
+            diff = self.compare_frame_objects(origin_data[0], des_data)
+
+            output_video = Path(result_path) / (Path(video_path).stem + "_diff.mp4")
+            self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, total_frames=total_frames)
+
+            summary = {
+                "diff_frames": len(diff),
+                "diff_detail": diff,
+                "fps": round(self.FPS, 2)
+            }
+            
+            # 差分フレーム画像を抽出（元動画は変換済みのものを使う）
+            frame_data = self.extract_diff_frames(org_video_nfps, video_nfps, summary, Path(result_path), Path(video_path).name)
+            
+        except Exception as e:
+            raise e
+            
+        return Path(video_path).name, summary, frame_data
 
     # -------------------------------
     #  Excel出力
@@ -271,8 +367,9 @@ class VideoObjectAnalyzer:
         results_dir.mkdir(parents=True, exist_ok=True)
         clean_folder(results_dir)
 
-        # --- 基準動画を30fpsに変換 ---
+        # --- 基準動画をN fpsに変換 ---
         org_video_nfps = convert_to_nfps(org_video, self.FPS)
+        self.temp_files.append(org_video_nfps)  # 一時ファイルとして登録
         
         # 基準動画を一度解析
         origin_data = self.analyze_video(org_video_nfps)
@@ -287,45 +384,60 @@ class VideoObjectAnalyzer:
 
         saved_videos = []
         results = {}
+        frame_data_list = []
 
-        if self.pc_config.MAX_WORKERS == 1:
-            for v in video_list:
-                name, summary = self.compare_with_origin(origin_data, v, result_path)
-                results[name] = summary
-                saved_videos.append(str(Path(result_path) / (Path(v).stem + "_diff.mp4")))
-        else:
-            with ThreadPoolExecutor(max_workers=self.pc_config.MAX_WORKERS) as executor:
-                futures = [executor.submit(self.compare_with_origin, origin_data, v, result_path) for v in video_list]
-                for f in as_completed(futures):
-                    name, summary = f.result()
+        try:
+            if self.pc_config.MAX_WORKERS == 1:
+                # シングルスレッド処理
+                for v in video_list:
+                    name, summary, frame_data = self.compare_with_origin_single(origin_data, v, result_path, org_video)
                     results[name] = summary
-                    vname = name.rsplit(".", 1)[0]
-                    saved_videos.append(str(Path(result_path) / (vname + "_diff.mp4")))
+                    saved_videos.append(str(Path(result_path) / (Path(v).stem + "_diff.mp4")))
+                    if frame_data:
+                        frame_data_list.append(frame_data)
+            else:
+                # マルチスレッド処理
+                with ThreadPoolExecutor(max_workers=self.pc_config.MAX_WORKERS) as executor:
+                    futures = [executor.submit(self.compare_with_origin_multi, origin_data, v, result_path, org_video_nfps) for v in video_list]
+                    for f in as_completed(futures):
+                        name, summary, frame_data = f.result()
+                        results[name] = summary
+                        vname = name.rsplit(".", 1)[0]
+                        saved_videos.append(str(Path(result_path) / (vname + "_diff.mp4")))
+                        if frame_data:
+                            frame_data_list.append(frame_data)
 
-        # fps同期動画の一時ファイルを削除する
-        Path(org_video_nfps).unlink(missing_ok=True)
-        
-        # 結果処理
-        excel_path = Path(result_path) / "compare_summary.xlsx"
-        self.export_to_excel(results, excel_path)
+            # 結果処理
+            excel_path = Path(result_path) / "compare_summary.xlsx"
+            self.export_to_excel(results, excel_path)
 
-        excel_name = excel_path.name
-        org_path = make_web_ready(str(origin_video_path))
-        org_path = str(org_path).replace("\\", "/")
-        video_paths = [make_web_ready(p) for p in saved_videos]
-        video_paths = [str(p).replace("\\", "/") for p in video_paths]
+            # フレームデータをJSONに保存
+            if frame_data_list:
+                frame_json_path = Path(result_path) / "diff_frames.json"
+                with open(frame_json_path, 'w', encoding='utf-8') as f:
+                    json.dump(frame_data_list, f, ensure_ascii=False, indent=2)
 
-        return excel_name, org_path, video_paths
+            excel_name = excel_path.name
+            org_path = make_web_ready(str(origin_video_path))
+            org_path = str(org_path).replace("\\", "/")
+            video_paths = [make_web_ready(p) for p in saved_videos]
+            video_paths = [str(p).replace("\\", "/") for p in video_paths]
+
+            return excel_name, org_path, video_paths, frame_data_list
+
+        finally:
+            # 一時ファイルをクリーンアップ
+            self.cleanup_temp_files()
 
 # ===============================
 #  実行例
 # ===============================
 if __name__ == "__main__":
     comparator = VideoObjectAnalyzer(fps=30, process_fps=5, threshold=5)
-    excel_path, org_path, saved_videos = comparator.main(
+    excel_path, org_path, saved_videos, frame_data = comparator.main(
         org_video="videos/A_fixed.mp4",
         video_list=["videos/B_fixed.mp4"],
         result_path="results"
     )
 
-    print(excel_path, org_path, saved_videos)
+    print(excel_path, org_path, saved_videos, frame_data)

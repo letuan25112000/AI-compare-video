@@ -60,6 +60,17 @@
 
     .box-button {
       margin: 20px 0;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-frame {
+      background-color: #28a745;
+    }
+
+    .btn-frame:hover {
+      background-color: #218838;
     }
   </style>
 </head>
@@ -76,6 +87,7 @@
 
     <div class="box-button">
       <a href="{{ url_for('download', filename=excel_file) }}" class="btn">解析結果（Excel）をダウンロード</a>
+      <a href="{{ url_for('diff_frames') }}" class="btn btn-frame">差分フレームを表示</a>
       <a href="{{ url_for('index') }}" class="btn">トップへ戻る</a>
     </div>
     <hr>
@@ -89,7 +101,8 @@
         </video>
       </div>
       <div class="compare-video">
-        {% for video in video_paths %} <div class="video-item">
+        {% for video in video_paths %} 
+        <div class="video-item">
           <p>{{ video.split('/')[-1] }}</p>
           <video width="480" controls preload="metadata">
             <source src="{{ url_for('results_file', filename=video.split('results/')[-1]) }}" type="video/mp4">
