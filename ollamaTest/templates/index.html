@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>So sánh Ảnh với AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-images"></i> So sánh Ảnh với AI</h1>
+            <p>Tải lên hai ảnh và AI sẽ phân tích sự khác biệt giữa chúng</p>
+        </header>
+
+        <div class="upload-section">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="image-upload-container">
+                    <div class="upload-box">
+                        <div class="upload-area" id="uploadArea1">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Kéo thả ảnh thứ nhất hoặc <span>bấm để chọn</span></p>
+                            <input type="file" id="image1" name="image1" accept="image/*" hidden>
+                        </div>
+                        <div class="image-preview" id="preview1"></div>
+                    </div>
+                    
+                    <div class="vs-separator">
+                        <div class="vs-circle">VS</div>
+                    </div>
+                    
+                    <div class="upload-box">
+                        <div class="upload-area" id="uploadArea2">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Kéo thả ảnh thứ hai hoặc <span>bấm để chọn</span></p>
+                            <input type="file" id="image2" name="image2" accept="image/*" hidden>
+                        </div>
+                        <div class="image-preview" id="preview2"></div>
+                    </div>
+                </div>
+
+                <div class="prompt-section">
+                    <label for="prompt"><i class="fas fa-comment-alt"></i> Hướng dẫn cho AI:</label>
+                    <textarea id="prompt" name="prompt" placeholder="Ví dụ: So sánh hai ảnh này, chỉ ra điểm giống và khác nhau...">Compare the two images and describe the differences and similarities in detail.</textarea>
+                </div>
+
+                <button type="submit" id="compareBtn" class="compare-button">
+                    <i class="fas fa-robot"></i> So sánh với AI
+                </button>
+            </form>
+        </div>
+
+        <div class="result-section" id="resultSection" style="display: none;">
+            <h2><i class="fas fa-chart-bar"></i> Kết quả phân tích</h2>
+            <div class="timing-info" id="timingInfo"></div>
+            <div class="result-content" id="resultContent">
+                <!-- Kết quả sẽ được hiển thị ở đây -->
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>AI đang phân tích ảnh...</p>
+            <div class="loading-stats" id="loadingStats"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
