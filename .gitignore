@@ -35,6 +35,9 @@ document/
 data_train/
 runs/
 backup/
+uploads
+results
 static/results
 static/uploads
 results/VideoComparator
+ffmpeg

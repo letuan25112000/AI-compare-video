@@ -40,8 +40,8 @@ def process_video_feature(filepath_org, folderpath_des, result_path, fps, proces
     clean_folder(app.config["RESULT_FOLDER"])
     comparator = VideoObjectAnalyzer(model_path=ai_model_path,fps=fps, process_fps=process_fps, threshold=threshold)
     try:
-        excel_name, org_path, saved_videos, frame_data = comparator.main(filepath_org, folderpath_des, result_path)
-        return excel_name, org_path, saved_videos, frame_data
+        excel_name, org_path, saved_videos, frame_datas = comparator.main(filepath_org, folderpath_des, result_path)
+        return excel_name, org_path, saved_videos, frame_datas
     except Exception as e:
         print(f"処理エラー: {e}")
         raise
@@ -99,14 +99,14 @@ def feature():
             filepaths_des.append(filepath_des)
 
         try:
-            excel_name, org_path, saved_videos, frame_data = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold, ai_model_path)
+            excel_name, org_path, saved_videos, frame_datas = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold, ai_model_path)
 
             return render_template(
                 "result_feature.html",
                 excel_file=excel_name,
                 org_path=org_path,
                 video_paths=saved_videos,
-                frame_data=frame_data or []
+                frame_data=frame_datas or []
             )
         except Exception as e:
             return f"処理中にエラーが発生しました: {str(e)}"
@@ -140,4 +140,4 @@ if __name__ == "__main__":
     port = find_free_port(5000)
     Timer(1, lambda: open_browser(port)).start()
     print(f"✅ Server running on http://127.0.0.1:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=port, debug=True, threaded=True)

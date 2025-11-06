@@ -218,32 +218,66 @@ class VideoObjectAnalyzer:
         return ret
 
     # -------------------------------
-    #  差分フレームの画像を抽出
+    #  差分フレームの画像を抽出（全て）
     # -------------------------------
     def extract_diff_frames(self, org_video: str, compare_video: str, diff_summary: dict, result_path: Path, video_name: str):
-        """最初の差分フレームを画像として抽出"""
+        """差分があるすべてのフレームを画像として抽出"""
         if not diff_summary.get("diff_detail"):
-            return None
-        
-        # 最初の差分フレームを取得
-        first_diff_frame = min(diff_summary["diff_detail"].keys())
-        frame_time = first_diff_frame / self.FPS
-        
-        # 元動画と比較動画のフレームを抽出
-        org_frame_path = result_path / f"{Path(video_name).stem}_org_frame.jpg"
-        compare_frame_path = result_path / f"{Path(video_name).stem}_compare_frame.jpg"
-        
-        # フレーム抽出
-        self.extract_frame_as_image(org_video, frame_time, org_frame_path)
-        self.extract_frame_as_image(compare_video, frame_time, compare_frame_path)
-        
-        return {
-            "video_name": video_name,
-            "org_frame": org_frame_path.name,
-            "compare_frame": compare_frame_path.name,
-            "frame_time": frame_time,
-            "diff_details": diff_summary["diff_detail"][first_diff_frame]
-        }
+            return []
+
+        fps = diff_summary.get("fps", self.FPS)
+        sorted_frames = sorted(diff_summary["diff_detail"].items())
+
+        results = []
+
+        prev_text = None
+        start_frame = None
+        end_frame = None
+        jp_map = dict(zip(MODEL_CLASS_IDS, MODEL_CLASS_IDS_JP))
+
+        # --- 差分内容をグループ化 ---
+        grouped_entries = []
+        for frame_index, info in sorted_frames:
+            added_txt = "＋追加: " + ", ".join(jp_map.get(x, x) for x in info["added"]) if info["added"] else ""
+            removed_txt = "－削除: " + ", ".join(jp_map.get(x, x) for x in info["removed"]) if info["removed"] else ""
+            diff_text = "\n".join([x for x in [added_txt, removed_txt] if x])
+
+            if diff_text == prev_text:
+                end_frame = frame_index
+            else:
+                if prev_text is not None:
+                    grouped_entries.append((start_frame, end_frame, prev_text))
+                prev_text = diff_text
+                start_frame = frame_index
+                end_frame = frame_index
+
+        if prev_text is not None:
+            grouped_entries.append((start_frame, end_frame, prev_text))
+
+        # --- 各グループの代表フレームを抽出 ---
+        for idx, (start_frame, end_frame, diff_text) in enumerate(grouped_entries, start=1):
+            mid_frame = (start_frame + end_frame) // 2
+            frame_time = mid_frame / fps
+
+            # 出力ファイル名
+            org_frame_path = result_path / f"{Path(video_name).stem}_org_{idx:02d}.jpg"
+            compare_frame_path = result_path / f"{Path(video_name).stem}_compare_{idx:02d}.jpg"
+
+            # 抽出
+            self.extract_frame_as_image(org_video, frame_time, org_frame_path)
+            self.extract_frame_as_image(compare_video, frame_time, compare_frame_path)
+
+            results.append({
+                "video_name": video_name,
+                "range": f"{start_frame/fps:.1f}s ～ {(end_frame+1)/fps:.1f}s",
+                "org_frame": org_frame_path.name,
+                "compare_frame": compare_frame_path.name,
+                "frame_time": frame_time,
+                "diff_text": diff_text,
+            })
+
+        return results
+
 
     # -------------------------------
     #  基準動画との比較処理（シングルスレッド用）

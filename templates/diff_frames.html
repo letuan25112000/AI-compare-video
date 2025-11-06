@@ -106,51 +106,44 @@
     <hr>
 
     {% if frame_data %}
-      {% for frame in frame_data %}
-      <div class="frame-pair">
-        <div class="frame-header">
-          <h4>比較結果 {{ loop.index }}</h4>
-          <div class="frame-info">
-            差分発生時間: {{ "%.1f"|format(frame.frame_time) }}秒
-          </div>
-        </div>
-
-        <div class="frame-comparison">
-          <div class="frame-item">
-            <h5>元動画</h5>
-            <img src="{{ url_for('results_file', filename=frame.org_frame) }}" 
-                 alt="元動画のフレーム" 
-                 loading="lazy">
+      {% for data_item in frame_data %}
+        {% for frame in data_item %}
+        <div class="frame-pair">
+          <div class="frame-header">
+            <h4>比較結果 {{ loop.index }}</h4>
             <div class="frame-info">
-              {{ frame.org_frame }}
+              差分発生時間: {{ "%.1f"|format(frame.frame_time) }}秒
             </div>
           </div>
 
-          <div class="frame-item">
-            <h5>比較動画</h5>
-            <img src="{{ url_for('results_file', filename=frame.compare_frame) }}" 
-                 alt="比較動画のフレーム" 
-                 loading="lazy">
-            <div class="frame-info">
-              {{ frame.compare_frame }}
+          <div class="frame-comparison">
+            <div class="frame-item">
+              <h5>元動画</h5>
+              <img src="{{ url_for('results_file', filename=frame.org_frame) }}" 
+                  alt="元動画のフレーム" 
+                  loading="lazy">
+              <div class="frame-info">
+                {{ frame.org_frame }}
+              </div>
+            </div>
+
+            <div class="frame-item">
+              <h5>比較動画</h5>
+              <img src="{{ url_for('results_file', filename=frame.compare_frame) }}" 
+                  alt="比較動画のフレーム" 
+                  loading="lazy">
+              <div class="frame-info">
+                {{ frame.compare_frame }}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="diff-details">
-          <h5>差分内容:</h5>
-          {% if frame.diff_details.added %}
-            {% for item in frame.diff_details.added %}
-            <div class="diff-item added">＋追加: {{ item }}</div>
-            {% endfor %}
-          {% endif %}
-          {% if frame.diff_details.removed %}
-            {% for item in frame.diff_details.removed %}
-            <div class="diff-item removed">－削除: {{ item }}</div>
-            {% endfor %}
-          {% endif %}
+          <div class="diff-details">
+            <h5>差分内容:</h5>
+            <pre>{{ frame.diff_text }}</pre>
+          </div>
         </div>
-      </div>
+        {% endfor %}
       {% endfor %}
     {% else %}
       <div class="no-data">
