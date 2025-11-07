@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8" />
   <title>差分フレーム - AI映像検出</title>
@@ -16,6 +15,7 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       background: #f9f9f9;
+      position: relative;
     }
 
     .frame-header {
@@ -56,23 +56,37 @@
     .diff-details {
       margin-top: 15px;
       padding: 10px;
-      background: #366ccf;
-      border: 1px solid #ffeaa7;
+      background: #e9f1ff;
+      border: 1px solid #b0c7ff;
       border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
     }
 
-    .diff-item {
-      margin: 5px 0;
+    .diff_text_ai {
+      color: #333;
     }
 
-    .added {
-      color: #28a745;
-      font-weight: bold;
+    .loading {
+      color: #999;
+      font-style: italic;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .removed {
-      color: #dc3545;
-      font-weight: bold;
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #007bff;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     .box-button {
@@ -92,57 +106,52 @@
 <body>
   <div class="container">
     <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
-      <button type="submit" class="exit-btn">
-        終了
-      </button>
+      <button type="submit" class="exit-btn">終了</button>
     </form>
 
     <h3>差分フレーム一覧</h3>
 
     <div class="box-button">
       <a href="{{ url_for('feature') }}" class="btn">比較ページに戻る</a>
-      <a href="{{ url_for('index') }}" class="btn">トップへ戻る</a>
+      <a href="{{ url_for('index') }}" class="btn">トップページに戻る</a>
     </div>
     <hr>
 
     {% if frame_data %}
       {% for data_item in frame_data %}
         {% for frame in data_item %}
-        <div class="frame-pair">
-          <div class="frame-header">
-            <h4>比較結果 {{ loop.index }}</h4>
-            <div class="frame-info">
-              差分発生時間: {{ frame.frame_time }}秒
+          <div class="frame-pair">
+            <div class="frame-header">
+              <h4>比較結果 {{ loop.index }}</h4>
+              <div class="frame-info">差分発生時間: {{ frame.frame_time }}</div>
             </div>
-          </div>
 
-          <div class="frame-comparison">
-            <div class="frame-item">
-              <h5>元動画</h5>
-              <img src="{{ url_for('results_file', filename=frame.org_frame) }}" 
-                  alt="元動画のフレーム" 
-                  loading="lazy">
-              <div class="frame-info">
-                {{ frame.org_frame }}
+            <div class="frame-comparison">
+              <div class="frame-item">
+                <h5>元映像</h5>
+                <img src="{{ url_for('results_file', filename=frame.org_frame) }}" 
+                     alt="元映像のフレーム" loading="lazy">
+                <div class="frame-info">{{ frame.org_frame }}</div>
+              </div>
+
+              <div class="frame-item">
+                <h5>比較映像</h5>
+                <img src="{{ url_for('results_file', filename=frame.compare_frame) }}" 
+                     alt="比較映像のフレーム" loading="lazy">
+                <div class="frame-info">{{ frame.compare_frame }}</div>
               </div>
             </div>
 
-            <div class="frame-item">
-              <h5>比較動画</h5>
-              <img src="{{ url_for('results_file', filename=frame.compare_frame) }}" 
-                  alt="比較動画のフレーム" 
-                  loading="lazy">
-              <div class="frame-info">
-                {{ frame.compare_frame }}
-              </div>
+            <div class="diff-details" id="diff-{{ frame.org_frame | replace('.','_') }}">
+              {% if frame.diff_text_ai %}
+                <p class="diff_text_ai">{{ frame.diff_text_ai }}</p>
+              {% else %}
+                <div class="loading">
+                  <div class="spinner"></div> AIが処理中です...
+                </div>
+              {% endif %}
             </div>
           </div>
-
-          <div class="diff-details">
-            <h5>差分内容:</h5>
-            <pre>{{ frame.diff_text }}</pre>
-          </div>
-        </div>
         {% endfor %}
       {% endfor %}
     {% else %}
@@ -151,6 +160,31 @@
       </div>
     {% endif %}
   </div>
-</body>
 
+  <!-- 🔁 AI解析結果を自動更新 -->
+  <script>
+    async function reloadDiffs() {
+      try {
+        const res = await fetch(window.location.href, { cache: "no-store" });
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        // diff-details 部分を再描画
+        document.querySelectorAll(".diff-details").forEach(div => {
+          const id = div.id;
+          const newDiv = doc.getElementById(id);
+          if (newDiv && newDiv.innerHTML !== div.innerHTML) {
+            div.innerHTML = newDiv.innerHTML;
+          }
+        });
+      } catch (err) {
+        console.error("更新に失敗しました:", err);
+      }
+    }
+
+    // 5秒ごとに更新
+    setInterval(reloadDiffs, 5000);
+  </script>
+</body>
 </html>

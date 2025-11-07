@@ -2,10 +2,13 @@ import os
 import socket
 import webbrowser
 from threading import Timer
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from datetime import datetime
+
+import requests
 from VideoComparatorNew import VideoObjectAnalyzer
 from config import FFMPEG_PATH, RESULT_DIR, STATIC_DIR, TEMPLATE_DIR, UPLOAD_DIR
+from diff_frame_analyzer import handle_diff_frames
 from utils.help import clean_folder
 import threading
 import time
@@ -15,12 +18,12 @@ import subprocess
 import json
 
 
-# Make sure runtime folders exist
+# ランタイムフォルダが存在することを確認する
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
 # -----------------------------
-# Initialize Flask
+# Flaskを初期化する
 # -----------------------------
 app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=STATIC_DIR)
 app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
@@ -28,7 +31,7 @@ app.config["RESULT_FOLDER"] = RESULT_DIR
 
 def find_free_port(default_port=5000):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))  # 0 means: let OS pick a free port
+        s.bind(("", 0)) # 0 は OS に空きポートを選択させることを意味します
         return s.getsockname()[1]
 
 def open_browser(port):
@@ -46,6 +49,12 @@ def process_video_feature(filepath_org, folderpath_des, result_path, fps, proces
         print(f"処理エラー: {e}")
         raise
 
+def background_diff_process(result_folder):
+    try:
+        handle_diff_frames(result_folder)
+    except Exception as e:
+        print(f"⚠️ Lỗi xử lý diff frames nền: {e}")
+        
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -101,6 +110,12 @@ def feature():
         try:
             excel_name, org_path, saved_videos, frame_datas = process_video_feature(filepath_org, filepaths_des, app.config["RESULT_FOLDER"], fps, process_fps, threshold, ai_model_path)
 
+            threading.Thread(
+                target=background_diff_process,
+                args=(app.config["RESULT_FOLDER"],),
+                daemon=True
+            ).start()
+
             return render_template(
                 "result_feature.html",
                 excel_file=excel_name,
@@ -124,7 +139,19 @@ def diff_frames():
     
     return render_template("diff_frames.html", frame_data=frame_data)
 
-# ====== SHUTDOWN SERVER ======
+# -----------------------------
+# API: diff_frames ステータス
+# -----------------------------
+@app.route("/api/diff_status")
+def api_diff_status():
+    json_path = os.path.join(app.config["RESULT_FOLDER"], "diff_frames_ai.json")
+    if not os.path.exists(json_path):
+        return jsonify({"status": "processing", "data": []})
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return jsonify({"status": "done", "data": data})
+
+# ====== サーバーのシャットダウン ======
 @app.route("/shutdown", methods=["POST"])
 def shutdown():
     def stop_server():
@@ -135,7 +162,7 @@ def shutdown():
     return "終了されました..."
 
 if __name__ == "__main__":
-    # Example usage
+    # 使用例
     subprocess.run([FFMPEG_PATH, "-version"])
     port = find_free_port(5000)
     Timer(1, lambda: open_browser(port)).start()
