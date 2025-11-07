@@ -83,7 +83,7 @@ class VideoObjectAnalyzer:
         print(f"総処理時間: {total_time:.2f} 秒 ({total_time/60:.2f} 分)")
         print(f"1フレームあたり平均処理時間: {avg_frame_time:.3f} 秒")
 
-        return frame_objects, frames_dict, frame_count
+        return frame_objects, frames_dict
 
     # -------------------------------
     #  フレームごとの差分比較
@@ -141,81 +141,119 @@ class VideoObjectAnalyzer:
         return diff_result
 
     # -------------------------------
-    #  差分を描画した動画を保存
+    #  差分を描画した動画を保存（元動画ベース）
     # -------------------------------
-    def save_video_with_boxes(self, frames_dict, diff_frames=None, output_path="output.mp4", total_frames=None):
+    def save_video_with_boxes(
+        self,
+        org_video_path: str,
+        frames_dict: dict,
+        diff_frames: dict = None,
+        output_path: str = "output.mp4"
+    ):
         """
-        frames_dict: {frame_index: (frame, boxes)}
-        diff_frames: {frame_index: {"added":[], "removed":[]}}
-        total_frames: 元動画の総フレーム数
+        org_video_path : 元動画のパス
+        frames_dict    : {frame_index: (frame, boxes)}
+        diff_frames    : {frame_index: {"added":[], "removed":[]}}
         """
-        if not frames_dict:
-            return
 
-        # 1つのフレームから動画サイズ取得
-        h, w = frames_dict[next(iter(frames_dict))][0].shape[:2]
+        import cv2
+        from pathlib import Path
+
+        cap = cv2.VideoCapture(org_video_path)
+        if not cap.isOpened():
+            raise ValueError(f"動画を開けませんでした: {org_video_path}")
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(str(output_path), fourcc, self.FPS, (w, h))
+        out = cv2.VideoWriter(str(output_path), fourcc, fps, (w, h))
 
-        sorted_indices = sorted(frames_dict.keys())
-        last_frame_data = None
+        # 初期状態
         last_boxes = None
-        last_diff_ids = set()  # 前回の差分オブジェクト
+        last_diff_ids = set()
 
-        max_frame = total_frames or sorted_indices[-1]
+        # すべてのフレームを逐次処理
+        for frame_idx in range(total_frames):
+            ret, frame = cap.read()
+            if not ret:
+                print(f"フレーム読込失敗: {frame_idx}/{total_frames}")
+                break
 
-        for frame_idx in range(max_frame):
+            # フレーム情報更新
             if frame_idx in frames_dict:
-                frame, boxes = frames_dict[frame_idx]
-                last_frame_data = frame.copy()
+                _, boxes = frames_dict[frame_idx]
                 last_boxes = boxes
                 diff_info = diff_frames.get(frame_idx) if diff_frames else None
                 last_diff_ids = set(diff_info.get("added", []) + diff_info.get("removed", [])) if diff_info else set()
-            elif last_frame_data is not None:
-                frame = last_frame_data.copy()
+            elif last_boxes is not None:
                 boxes = last_boxes
             else:
-                continue
+                boxes = []
 
             frame_draw = frame.copy()
+
+            # --- バウンディングボックス描画 ---
             for box in boxes:
                 cls_id = int(box.cls[0])
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 label = MODEL_CLASS_IDS[cls_id]
-                color = (0, 255, 0)
-                if label in last_diff_ids:
-                    color = (0, 0, 255)
+
+                # 差分オブジェクトなら赤、通常は緑
+                color = (0, 0, 255) if label in last_diff_ids else (0, 255, 0)
                 cv2.rectangle(frame_draw, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(frame_draw, label, (x1, y1 - 5),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
             out.write(frame_draw)
 
+        cap.release()
         out.release()
         print(f"動画保存完了: {output_path}")
+
 
     # -------------------------------
     #  特定のフレームを画像として保存
     # -------------------------------
     def extract_frame_as_image(self, video_path: str, frame_time: float, output_path: str):
-        """指定した時間のフレームを画像として保存"""
+        """指定した時間のフレームを画像として保存（FPSと動画長さの検証付き）"""
+        import cv2
+
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"動画を開けませんでした: {video_path}")
-        
-        # フレーム時間をフレーム番号に変換
-        frame_number = int(frame_time * self.FPS)
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-        
+
+        # --- 取得 FPS と 総フレーム数 ---
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = total_frames / fps if fps > 0 else 0
+
+        # FPS が取得できない場合はデフォルトを使用
+        if not fps or fps <= 0:
+            fps = getattr(self, "FPS", 30)
+            print(f"⚠️ FPSを取得できません。デフォルト値 {fps} を使用します。")
+
+        # --- 範囲外チェック ---
+        if frame_time > duration:
+            print(f"⚠️ 指定時間 {frame_time:.2f}s は動画の長さ {duration:.2f}s を超えています。スキップします。")
+            cap.release()
+            return False
+
+        # --- 時間指定でフレーム取得（より正確）---
+        cap.set(cv2.CAP_PROP_POS_MSEC, frame_time * 1000)
+
         ret, frame = cap.read()
         if ret:
             cv2.imwrite(str(output_path), frame)
-            print(f"フレーム保存: {output_path} (時間: {frame_time}s)")
+            print(f"フレーム保存成功: {output_path} (時間: {frame_time:.2f}s)")
         else:
-            print(f"フレーム抽出失敗: {video_path} at {frame_time}s")
-        
+            print(f"フレーム抽出失敗: {video_path} at {frame_time:.2f}s")
+
         cap.release()
         return ret
+
 
     # -------------------------------
     #  差分フレームの画像を抽出（全て）
@@ -256,8 +294,7 @@ class VideoObjectAnalyzer:
 
         # --- 各グループの代表フレームを抽出 ---
         for idx, (start_frame, end_frame, diff_text) in enumerate(grouped_entries, start=1):
-            mid_frame = (start_frame + end_frame) // 2
-            frame_time = mid_frame / fps
+            frame_time = start_frame / fps
 
             # 出力ファイル名
             org_frame_path = result_path / f"{Path(video_name).stem}_org_{idx:02d}.jpg"
@@ -269,10 +306,9 @@ class VideoObjectAnalyzer:
 
             results.append({
                 "video_name": video_name,
-                "range": f"{start_frame/fps:.1f}s ～ {(end_frame+1)/fps:.1f}s",
+                "frame_time": f"{start_frame/fps:.1f}s ～ {(end_frame+1)/fps:.1f}s",
                 "org_frame": org_frame_path.name,
                 "compare_frame": compare_frame_path.name,
-                "frame_time": frame_time,
                 "diff_text": diff_text,
             })
 
@@ -282,18 +318,18 @@ class VideoObjectAnalyzer:
     # -------------------------------
     #  基準動画との比較処理（シングルスレッド用）
     # -------------------------------
-    def compare_with_origin_single(self, origin_data, video_path: str, result_path: str, org_video_path: str):
+    def compare_with_origin_single(self, origin_data, video_path: str, result_path: str, org_video_nfps: str):
         """シングルスレッド用の比較処理"""
         # --- 対象動画をN fpsに変換 ---
         video_nfps = convert_to_nfps(video_path, self.FPS)
         self.temp_files.append(video_nfps)  # 一時ファイルとして登録
         
         try:
-            des_data, frames_dict, total_frames = self.analyze_video(video_nfps)
+            des_data, frames_dict = self.analyze_video(video_nfps)
             diff = self.compare_frame_objects(origin_data[0], des_data)
 
             output_video = Path(result_path) / (Path(video_path).stem + "_diff.mp4")
-            self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, total_frames=total_frames)
+            self.save_video_with_boxes(video_nfps, frames_dict, diff_frames=diff, output_path=output_video)
 
             summary = {
                 "diff_frames": len(diff),
@@ -302,7 +338,7 @@ class VideoObjectAnalyzer:
             }
             
             # 差分フレーム画像を抽出
-            frame_data = self.extract_diff_frames(org_video_path, video_path, summary, Path(result_path), Path(video_path).name)
+            frame_data = self.extract_diff_frames(org_video_nfps, video_nfps, summary, Path(result_path), Path(video_path).name)
             
         except Exception as e:
             raise e
@@ -319,11 +355,11 @@ class VideoObjectAnalyzer:
         self.temp_files.append(video_nfps)  # 一時ファイルとして登録
         
         try:
-            des_data, frames_dict, total_frames = self.analyze_video(video_nfps)
+            des_data, frames_dict = self.analyze_video(video_nfps)
             diff = self.compare_frame_objects(origin_data[0], des_data)
 
             output_video = Path(result_path) / (Path(video_path).stem + "_diff.mp4")
-            self.save_video_with_boxes(frames_dict, diff_frames=diff, output_path=output_video, total_frames=total_frames)
+            self.save_video_with_boxes(video_nfps, frames_dict, diff_frames=diff, output_path=output_video)
 
             summary = {
                 "diff_frames": len(diff),
@@ -411,9 +447,9 @@ class VideoObjectAnalyzer:
         # 基準動画を描画して保存
         origin_video_path = Path(result_path) / "origin_video_boxes.mp4"
         self.save_video_with_boxes(
+            org_video_nfps,
             origin_data[1],
             output_path=origin_video_path,
-            total_frames=origin_data[2]
         )
 
         saved_videos = []
@@ -424,7 +460,7 @@ class VideoObjectAnalyzer:
             if self.pc_config.MAX_WORKERS == 1:
                 # シングルスレッド処理
                 for v in video_list:
-                    name, summary, frame_data = self.compare_with_origin_single(origin_data, v, result_path, org_video)
+                    name, summary, frame_data = self.compare_with_origin_single(origin_data, v, result_path, org_video_nfps)
                     results[name] = summary
                     saved_videos.append(str(Path(result_path) / (Path(v).stem + "_diff.mp4")))
                     if frame_data:
