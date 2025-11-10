@@ -1,36 +1,96 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI映像検出システム - ホーム</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
-<style>
-  .container {
-    width: 450px;
-  }
-
-  .btn {
-    width: 100%;
-  }
-</style>
-
 <body>
-  <div class="container">
-    <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
-      <button type="submit" class="exit-btn">
-        終了
-      </button>
-    </form>
-    <h1>AI映像検出システム</h1>
-    <p>実行する機能を選択してください。</p>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <div class="logo-icon">
+            <i class="fas fa-video"></i>
+          </div>
+          <div class="logo-text">
+            <h1 class="app-title">AI映像検出システム</h1>
+            <p class="app-subtitle">Intelligent Video Analysis</p>
+          </div>
+        </div>
+        <form action="/shutdown" method="post" class="form-exit">
+          <button type="submit" class="exit-btn">
+            <i class="fas fa-power-off"></i>
+            <span>終了</span>
+          </button>
+        </form>
+      </div>
+    </header>
 
-    <a href="/feature" class="btn">データ解析・レポート生成</a>
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="welcome-section">
+        <div class="welcome-icon">
+          <i class="fas fa-brain"></i>
+        </div>
+        <h2 class="welcome-title">AI映像解析プラットフォーム</h2>
+        <p class="welcome-description">
+          高度なAI技術による動画異常検知と比較分析<br>
+          複数の動画を同時に解析し、詳細なレポートを生成します
+        </p>
+      </div>
 
-    <footer>© 2025 AI Detection System</footer>
+      <div class="feature-section">
+        <h3 class="section-title">実行する機能を選択</h3>
+        <a href="/feature" class="feature-btn">
+          <div class="btn-icon">
+            <i class="fas fa-chart-line"></i>
+          </div>
+          <div class="btn-content">
+            <span class="btn-text">データ解析・レポート生成</span>
+            <span class="btn-subtext">動画比較と詳細分析</span>
+          </div>
+          <div class="btn-arrow">
+            <i class="fas fa-chevron-right"></i>
+          </div>
+        </a>
+      </div>
+
+      <div class="info-cards">
+        <div class="info-card">
+          <div class="card-icon">
+            <i class="fas fa-robot"></i>
+          </div>
+          <h4>AI解析</h4>
+          <p>深層学習による高精度検出</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">
+            <i class="fas fa-compare"></i>
+          </div>
+          <h4>動画比較</h4>
+          <p>複数動画の同時分析</p>
+        </div>
+        <div class="info-card">
+          <div class="card-icon">
+            <i class="fas fa-file-excel"></i>
+          </div>
+          <h4>レポート出力</h4>
+          <p>詳細な分析結果をExcelで出力</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p><i class="fas fa-copyright"></i> 2025 AI Detection System</p>
+      </div>
+    </footer>
   </div>
 </body>
-
 </html>

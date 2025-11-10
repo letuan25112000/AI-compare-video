@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Get all DOM elements ---
     const uploadForm = document.getElementById('uploadForm');
     const image1Input = document.getElementById('image1');
     const image2Input = document.getElementById('image2');
@@ -13,10 +14,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const loading = document.getElementById('loading');
     const loadingStats = document.getElementById('loadingStats');
 
-    // Biến để theo dõi thời gian
+    // Used to measure total request duration
     let requestStartTime;
 
-    // Xử lý upload area 1
+    // --- Upload area 1 events ---
     uploadArea1.addEventListener('click', () => image1Input.click());
     uploadArea1.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -35,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Xử lý upload area 2
+    // --- Upload area 2 events ---
     uploadArea2.addEventListener('click', () => image2Input.click());
     uploadArea2.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -54,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Xử lý chọn file thông thường
+    // --- Handle normal file selection ---
     image1Input.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             handleImageUpload(e.target.files[0], image1Input, preview1, uploadArea1);
@@ -67,68 +68,65 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Hàm xử lý upload ảnh
+    // --- Handle image upload and preview ---
     function handleImageUpload(file, input, preview, uploadArea) {
         if (!file.type.match('image.*')) {
-            alert('Vui lòng chọn file ảnh!');
+            alert('画像ファイルを選択してください！'); // Please select an image file
             return;
         }
 
-        // Cập nhật input file
+        // Update file input manually (for drag & drop)
         const dt = new DataTransfer();
         dt.items.add(file);
         input.files = dt.files;
 
-        // Hiển thị preview
+        // Display image preview
         const reader = new FileReader();
         reader.onload = function(e) {
-            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            preview.innerHTML = `<img src="${e.target.result}" alt="プレビュー">`;
             uploadArea.style.display = 'none';
         };
         reader.readAsDataURL(file);
     }
 
-    // Hàm cập nhật thông tin loading
+    // --- Update loading animation and progress ---
     function updateLoadingStats(elapsedTime) {
         const seconds = Math.floor(elapsedTime / 1000);
         const milliseconds = elapsedTime % 1000;
         loadingStats.innerHTML = `
-            <div>Đang xử lý: ${seconds}.${milliseconds.toString().padStart(3, '0')}s</div>
-            <div class="progress-bar">
-                <div class="progress-fill"></div>
-            </div>
+            <div>処理中: ${seconds}.${milliseconds.toString().padStart(3, '0')}秒</div>
             <div class="stage-indicators">
                 <div class="stage ${elapsedTime < 3000 ? 'active' : ''}">
                     <div class="stage-dot"></div>
-                    <div class="stage-label">Nén ảnh</div>
+                    <div class="stage-label">画像圧縮</div>
                 </div>
                 <div class="stage ${elapsedTime >= 3000 ? 'active' : ''}">
                     <div class="stage-dot"></div>
-                    <div class="stage-label">AI phân tích</div>
+                    <div class="stage-label">AI解析</div>
                 </div>
             </div>
         `;
     }
 
-    // Xử lý submit form
+    // --- Handle form submission ---
     uploadForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        // Kiểm tra đã chọn ảnh chưa
+        // Validate image selection
         if (!image1Input.files[0] || !image2Input.files[0]) {
-            alert('Vui lòng chọn cả hai ảnh!');
+            alert('2枚の画像を選択してください！'); // Please select both images
             return;
         }
 
-        // Bắt đầu đếm thời gian
+        // Start timer
         requestStartTime = Date.now();
         
-        // Hiển thị loading
+        // Show loading and hide result
         loading.style.display = 'block';
         resultSection.style.display = 'none';
         compareBtn.disabled = true;
 
-        // Cập nhật thời gian liên tục
+        // Update elapsed time every 100ms
         const loadingInterval = setInterval(() => {
             const elapsedTime = Date.now() - requestStartTime;
             updateLoadingStats(elapsedTime);
@@ -143,43 +141,42 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             const data = await response.json();
-
-            // Tính tổng thời gian
             const totalTime = Date.now() - requestStartTime;
 
             if (response.ok) {
-                // Hiển thị kết quả và thời gian
+                // Display success result
                 resultContent.textContent = data.response || data.error;
                 resultContent.className = 'result-content success';
                 
-                // Hiển thị thông tin thời gian
+                // Show timing info
                 if (data.timing) {
                     timingInfo.innerHTML = `
                         <div class="timing-item">
                             <div class="timing-value">${data.timing.compress_time}s</div>
-                            <div class="timing-label">Nén ảnh</div>
+                            <div class="timing-label">画像圧縮</div>
                         </div>
                         <div class="timing-item">
                             <div class="timing-value">${data.timing.api_time}s</div>
-                            <div class="timing-label">AI xử lý</div>
+                            <div class="timing-label">AI処理</div>
                         </div>
                         <div class="timing-item">
                             <div class="timing-value">${data.timing.total_time}s</div>
-                            <div class="timing-label">Tổng thời gian</div>
+                            <div class="timing-label">合計時間</div>
                         </div>
                         <div class="timing-item">
                             <div class="timing-value">${(totalTime / 1000).toFixed(2)}s</div>
-                            <div class="timing-label">Thời gian thực</div>
+                            <div class="timing-label">実測時間</div>
                         </div>
                     `;
                 }
             } else {
-                resultContent.textContent = data.error || 'Có lỗi xảy ra';
+                // Display error message
+                resultContent.textContent = data.error || 'エラーが発生しました。'; // Error occurred
                 resultContent.className = 'result-content error';
                 timingInfo.innerHTML = `
                     <div class="timing-item">
                         <div class="timing-value">${(totalTime / 1000).toFixed(2)}s</div>
-                        <div class="timing-label">Thời gian xử lý</div>
+                        <div class="timing-label">処理時間</div>
                     </div>
                 `;
             }
@@ -187,16 +184,17 @@ document.addEventListener('DOMContentLoaded', function() {
             resultSection.style.display = 'block';
         } catch (error) {
             const totalTime = Date.now() - requestStartTime;
-            resultContent.textContent = 'Lỗi kết nối: ' + error.message;
+            resultContent.textContent = '接続エラー: ' + error.message; // Connection error
             resultContent.className = 'result-content error';
             timingInfo.innerHTML = `
                 <div class="timing-item">
                     <div class="timing-value">${(totalTime / 1000).toFixed(2)}s</div>
-                    <div class="timing-label">Thời gian xử lý</div>
+                    <div class="timing-label">処理時間</div>
                 </div>
             `;
             resultSection.style.display = 'block';
         } finally {
+            // Always reset loading state
             clearInterval(loadingInterval);
             loading.style.display = 'none';
             compareBtn.disabled = false;
@@ -204,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Cho phép reset bằng cách click đúp vào preview
+    // --- Allow reset by double-clicking preview ---
     preview1.addEventListener('dblclick', () => {
         preview1.innerHTML = '';
         uploadArea1.style.display = 'flex';

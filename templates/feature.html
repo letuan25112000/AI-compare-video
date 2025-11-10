@@ -1,58 +1,247 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI検出 - 動画異常検知</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-  <style></style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
-  <div class="container">
-    <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
-      <button type="submit" class="exit-btn">
-        終了
-      </button>
-    </form>
-    <h1>複数の動画比較</h1>
-    <form id="uploadForm" action="/feature" method="POST" enctype="multipart/form-data">
-      <label>動画FPS:</label>
-      <input type="number" name="fps" accept="video/*" required />
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <div class="logo-icon">
+            <i class="fas fa-video"></i>
+          </div>
+          <div class="logo-text">
+            <h1 class="app-title">複数の動画比較</h1>
+            <p class="app-subtitle">動画異常検知</p>
+          </div>
+        </div>
+        <form action="/shutdown" method="post" class="form-exit">
+          <button type="submit" class="exit-btn">
+            <i class="fas fa-power-off"></i>
+            <span>終了</span>
+          </button>
+        </form>
+      </div>
+    </header>
 
-      <label>1秒に処理されるフレーム数:</label>
-      <input type="number" name="process_fps" accept="video/*" required />
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="upload-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <i class="fas fa-sliders-h"></i>
+            解析設定
+          </h2>
+          <p class="section-description">動画解析のパラメータを設定してください</p>
+        </div>
 
-      <label>画面遷移を判断するまでの待機時間 (ms):</label>
-      <input type="number" name="threshold" accept="video/*" required />
+        <form id="uploadForm" class="upload-form" action="/feature" method="POST" enctype="multipart/form-data">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-film"></i>
+                動画FPS
+              </label>
+              <input type="number" name="fps" class="form-input" placeholder="例: 30" required />
+              <div class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                動画のフレームレートを指定
+              </div>
+            </div>
 
-      <label>AIモデル:</label>
-      <input type="file" name="ai_model" accept="*" required />
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-tachometer-alt"></i>
+                処理フレーム数/秒
+              </label>
+              <input type="number" name="process_fps" class="form-input" placeholder="例: 5" required />
+              <div class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                1秒間に処理するフレーム数
+              </div>
+            </div>
+          </div>
 
-      <label>元の動画:</label>
-      <input type="file" name="video1" accept="video/*" required />
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-clock"></i>
+              画面遷移判定待機時間 (ms)
+            </label>
+            <input type="number" name="threshold" class="form-input" placeholder="例: 1000" required />
+            <div class="form-hint">
+              <i class="fas fa-info-circle"></i>
+              画面遷移を判断するまでの待機時間
+            </div>
+          </div>
 
-      <label>先の動画:</label>
-      <input type="file" name="videos" accept="video/*" multiple required />
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fas fa-cogs"></i>
+              AIモデルファイル
+            </label>
+            <div class="file-upload-area" id="modelUploadArea">
+              <input type="file" name="ai_model" id="modelInput" accept="*" required />
+              <div class="upload-placeholder">
+                <div class="upload-icon">
+                  <i class="fas fa-cube"></i>
+                </div>
+                <div class="upload-text">
+                  <strong>AIモデルファイルを選択</strong>
+                  <small>学習済みモデルファイルをアップロード</small>
+                </div>
+              </div>
+              <div class="file-list" id="modelList"></div>
+            </div>
+          </div>
 
-      <button type="submit" class="btn">AIで動画を解析</button>
-    </form>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-video"></i>
+                元の動画
+              </label>
+              <div class="file-upload-area" id="video1UploadArea">
+                <input type="file" name="video1" id="video1Input" accept="video/*" required />
+                <div class="upload-placeholder">
+                  <div class="upload-icon">
+                    <i class="fas fa-file-video"></i>
+                  </div>
+                  <div class="upload-text">
+                    <strong>基準動画を選択</strong>
+                    <small>比較の基準となる動画</small>
+                  </div>
+                </div>
+                <div class="file-list" id="video1List"></div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-videos"></i>
+                比較動画
+              </label>
+              <div class="file-upload-area" id="videosUploadArea">
+                <input type="file" name="videos" id="videosInput" accept="video/*" multiple required />
+                <div class="upload-placeholder">
+                  <div class="upload-icon">
+                    <i class="fas fa-layer-group"></i>
+                  </div>
+                  <div class="upload-text">
+                    <strong>比較動画を選択</strong>
+                    <small>複数選択可能</small>
+                  </div>
+                </div>
+                <div class="file-list" id="videosList"></div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="submit-btn primary-btn">
+            <i class="fas fa-play-circle"></i>
+            AIで動画を解析
+          </button>
+        </form>
+      </div>
+
+      <div class="support-info">
+        <h3 class="support-title">
+          <i class="fas fa-check-circle"></i>
+          対応フォーマット
+        </h3>
+        <div class="file-types">
+          <div class="file-type">
+            <div class="file-icon">
+              <i class="fas fa-file-video"></i>
+            </div>
+            <span>MP4, AVI, MOV</span>
+          </div>
+          <div class="file-type">
+            <div class="file-icon">
+              <i class="fas fa-cube"></i>
+            </div>
+            <span>AIモデルファイル</span>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 
+  <!-- Loading Overlay -->
   <div id="loading" class="loading-overlay">
-    <div style="display: flex; align-items: center">
-      <div class="spinner"></div>
-      AIで動画を処理中です。少々お待ちください...
+    <div class="loading-content">
+      <div class="spinner-container">
+        <div class="spinner">
+          <i class="fas fa-cog fa-spin"></i>
+        </div>
+      </div>
+      <div class="loading-text">
+        <h3>AIで動画を処理中</h3>
+        <p>少々お待ちください...</p>
+        <div class="loading-details">
+          <i class="fas fa-sync-alt fa-spin"></i>
+          動画解析と比較処理を実行中
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
     const form = document.getElementById("uploadForm");
     const loading = document.getElementById("loading");
+
+    // File upload handlers
+    const setupFileUpload = (inputId, listId, areaId) => {
+      const input = document.getElementById(inputId);
+      const list = document.getElementById(listId);
+      const area = document.getElementById(areaId);
+
+      input.addEventListener("change", function(e) {
+        list.innerHTML = '';
+        if (this.files.length > 0) {
+          area.classList.add('has-files');
+          Array.from(this.files).forEach(file => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            
+            let fileIcon = 'file';
+            if (file.type.includes('video')) {
+              fileIcon = 'file-video';
+            } else if (file.name.includes('.pth') || file.name.includes('.model')) {
+              fileIcon = 'cube';
+            }
+            
+            fileItem.innerHTML = `
+              <div class="file-icon">
+                <i class="fas fa-${fileIcon}"></i>
+              </div>
+              <div class="file-info">
+                <span class="file-name">${file.name}</span>
+                <span class="file-size">(${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </div>
+            `;
+            list.appendChild(fileItem);
+          });
+        } else {
+          area.classList.remove('has-files');
+        }
+      });
+    };
+
+    // Initialize file uploads
+    setupFileUpload('modelInput', 'modelList', 'modelUploadArea');
+    setupFileUpload('video1Input', 'video1List', 'video1UploadArea');
+    setupFileUpload('videosInput', 'videosList', 'videosUploadArea');
+
     form.addEventListener("submit", () => {
       loading.style.display = "flex";
     });
   </script>
 </body>
-
 </html>

@@ -2,163 +2,153 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>差分フレーム - AI映像検出</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-  <style>
-    .container {
-      min-width: 100%;
-    }
-
-    .frame-pair {
-      margin: 30px 0;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #f9f9f9;
-      position: relative;
-    }
-
-    .frame-header {
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #007bff;
-    }
-
-    .frame-header h4 {
-      margin: 0;
-      color: #007bff;
-    }
-
-    .frame-comparison {
-      display: flex;
-      gap: 20px;
-      align-items: flex-start;
-    }
-
-    .frame-item {
-      flex: 1;
-      text-align: center;
-    }
-
-    .frame-item img {
-      max-width: 100%;
-      height: auto;
-      border: 2px solid #ccc;
-      border-radius: 4px;
-    }
-
-    .frame-info {
-      margin-top: 10px;
-      font-size: 14px;
-      color: #666;
-    }
-
-    .diff-details {
-      margin-top: 15px;
-      padding: 10px;
-      background: #e9f1ff;
-      border: 1px solid #b0c7ff;
-      border-radius: 4px;
-      font-family: monospace;
-      white-space: pre-wrap;
-    }
-
-    .diff_text_ai {
-      color: #333;
-    }
-
-    .loading {
-      color: #999;
-      font-style: italic;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #007bff;
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .box-button {
-      margin: 20px 0;
-      display: flex;
-      gap: 10px;
-    }
-
-    @media (max-width: 768px) {
-      .frame-comparison {
-        flex-direction: column;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
-  <div class="container">
-    <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
-      <button type="submit" class="exit-btn">終了</button>
-    </form>
-
-    <h3>差分フレーム一覧</h3>
-
-    <div class="box-button">
-      <a href="{{ url_for('feature') }}" class="btn">比較ページに戻る</a>
-      <a href="{{ url_for('index') }}" class="btn">トップページに戻る</a>
-    </div>
-    <hr>
-
-    {% if frame_data %}
-      {% for data_item in frame_data %}
-        {% for frame in data_item %}
-          <div class="frame-pair">
-            <div class="frame-header">
-              <h4>比較結果 {{ loop.index }}</h4>
-              <div class="frame-info">差分発生時間: {{ frame.frame_time }}</div>
-            </div>
-
-            <div class="frame-comparison">
-              <div class="frame-item">
-                <h5>元映像</h5>
-                <img src="{{ url_for('results_file', filename=frame.org_frame) }}" 
-                     alt="元映像のフレーム" loading="lazy">
-                <div class="frame-info">{{ frame.org_frame }}</div>
-              </div>
-
-              <div class="frame-item">
-                <h5>比較映像</h5>
-                <img src="{{ url_for('results_file', filename=frame.compare_frame) }}" 
-                     alt="比較映像のフレーム" loading="lazy">
-                <div class="frame-info">{{ frame.compare_frame }}</div>
-              </div>
-            </div>
-
-            <div class="diff-details" id="diff-{{ frame.org_frame | replace('.','_') }}">
-              {% if frame.diff_text_ai %}
-                <p class="diff_text_ai">{{ frame.diff_text_ai }}</p>
-              {% else %}
-                <div class="loading">
-                  <div class="spinner"></div> AIが処理中です...
-                </div>
-              {% endif %}
-            </div>
+  <div class="app-container diff-page">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <div class="logo-icon">
+            <i class="fas fa-video"></i>
           </div>
-        {% endfor %}
-      {% endfor %}
-    {% else %}
-      <div class="no-data">
-        <p>差分フレームデータが見つかりませんでした。</p>
+          <div class="logo-text">
+            <h1 class="app-title">差分フレーム</h1>
+            <p class="app-subtitle">動画比較分析結果</p>
+          </div>
+        </div>
+        <form action="/shutdown" method="post" class="form-exit">
+          <button type="submit" class="exit-btn">
+            <i class="fas fa-power-off"></i>
+            <span>終了</span>
+          </button>
+        </form>
       </div>
-    {% endif %}
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="diff-header">
+        <div class="info-message">
+          <div class="info-icon">
+            <i class="fas fa-columns"></i>
+          </div>
+          <div class="message-content">
+            <h2>差分フレーム分析結果</h2>
+            <p>AIが検出した動画間の差分を詳細に表示します</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <a href="{{ url_for('feature') }}" class="action-btn secondary-btn">
+          <i class="fas fa-arrow-left"></i>
+          比較ページに戻る
+        </a>
+        <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
+          <i class="fas fa-home"></i>
+          トップページに戻る
+        </a>
+      </div>
+
+      {% if frame_data %}
+        <div class="diff-results">
+          {% for data_item in frame_data %}
+            {% for frame in data_item %}
+              <div class="frame-pair">
+                <div class="frame-header">
+                  <div class="frame-title">
+                    <h3>
+                      <i class="fas fa-random"></i>
+                      比較結果 {{ loop.index }}
+                    </h3>
+                    <div class="frame-time">
+                      <i class="fas fa-clock"></i>
+                      差分発生時間: {{ frame.frame_time }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="frame-comparison">
+                  <div class="frame-item">
+                    <div class="frame-label">
+                      <i class="fas fa-video"></i>
+                      元映像
+                    </div>
+                    <div class="frame-image">
+                      <img src="{{ url_for('results_file', filename=frame.org_frame) }}" 
+                           alt="元映像のフレーム" loading="lazy">
+                    </div>
+                    <div class="frame-info">{{ frame.org_frame }}</div>
+                  </div>
+
+                  <div class="frame-item">
+                    <div class="frame-label">
+                      <i class="fas fa-compare"></i>
+                      比較映像
+                    </div>
+                    <div class="frame-image">
+                      <img src="{{ url_for('results_file', filename=frame.compare_frame) }}" 
+                           alt="比較映像のフレーム" loading="lazy">
+                    </div>
+                    <div class="frame-info">{{ frame.compare_frame }}</div>
+                  </div>
+                </div>
+
+                <div class="frame-analysis">
+                  <div class="analysis-section">
+                    <h4>
+                      <i class="fas fa-search"></i>
+                      基本差分分析
+                    </h4>
+                    <div class="diff-text">{{ frame.diff_text }}</div>
+                  </div>
+
+                  <div class="analysis-section">
+                    <h4>
+                      <i class="fas fa-robot"></i>
+                      AI詳細分析
+                    </h4>
+                    <div class="diff-details" id="diff-{{ frame.org_frame | replace('.','_') }}">
+                      {% if frame.diff_text_ai %}
+                        <div class="ai-analysis-result">
+                          {{ frame.diff_text_ai }}
+                        </div>
+                      {% else %}
+                        <div class="loading-analysis">
+                          <div class="spinner"></div>
+                          <div class="loading-text">
+                            <strong>AIが詳細分析を実行中...</strong>
+                            <span>しばらくお待ちください</span>
+                          </div>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">
+            <i class="fas fa-inbox"></i>
+          </div>
+          <h3>差分フレームデータが見つかりませんでした</h3>
+          <p>動画比較を実行して差分分析を行ってください</p>
+          <a href="/feature" class="primary-btn">
+            <i class="fas fa-play-circle"></i>
+            動画比較を実行
+          </a>
+        </div>
+      {% endif %}
+    </main>
   </div>
 
   <!-- 🔁 AI解析結果を自動更新 -->

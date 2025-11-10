@@ -1,21 +1,17 @@
 import os
 import socket
 import webbrowser
+import threading
+import time
+import subprocess
+import json
 from threading import Timer
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from datetime import datetime
-
-import requests
 from VideoComparatorNew import VideoObjectAnalyzer
 from config import FFMPEG_PATH, RESULT_DIR, STATIC_DIR, TEMPLATE_DIR, UPLOAD_DIR
 from diff_frame_analyzer import handle_diff_frames
 from utils.help import clean_folder
-import threading
-import time
-import os
-import sys
-import subprocess
-import json
 
 
 # ランタイムフォルダが存在することを確認する

@@ -21,7 +21,7 @@ def compress_image(image_path, max_size=(512, 512), quality=80):
             img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
             return img_base64
     except Exception as e:
-        print(f"❌ 画像圧縮エラー: {image_path} -> {e}")
+        print(f"画像圧縮エラー: {image_path} -> {e}")
         return None
     
 
@@ -36,7 +36,7 @@ def compare_images(img1_path, img2_path, prompt="2枚の画像を比較してく
     compress_time = time.time() - compress_start
 
     if not img1_base64 or not img2_base64:
-        return {"error": "❌ 画像を圧縮できませんでした。"}
+        return {"error": "画像を圧縮できませんでした。"}
 
     data = {
         "model": "gemma3:12b",
@@ -62,9 +62,9 @@ def compare_images(img1_path, img2_path, prompt="2枚の画像を比較してく
                 }
             }
         else:
-            print(f"⚠️ APIエラー: {response.status_code} - {response.text}")
+            print(f"APIエラー: {response.status_code} - {response.text}")
             return {
-                "error": f"❌ APIエラー: {response.status_code}",
+                "error": f"APIエラー: {response.status_code}",
                 "timing": {
                     "compress_time": round(compress_time, 2),
                     "api_time": round(api_time, 2),
@@ -72,9 +72,9 @@ def compare_images(img1_path, img2_path, prompt="2枚の画像を比較してく
                 }
             }
     except Exception as e:
-        print(f"❌ 接続エラー: {e}")
+        print(f"接続エラー: {e}")
         return {
-            "error": f"❌ 接続エラー: {str(e)}",
+            "error": f"接続エラー: {str(e)}",
             "timing": {
                 "compress_time": round(compress_time, 2),
                 "api_time": 0,
@@ -87,23 +87,23 @@ def handle_diff_frames(result_dir):
     frame_data_path = os.path.join(result_dir, "diff_frames.json")
 
     if not os.path.exists(frame_data_path):
-        print("⚠️ diff_frames.json が見つかりません。")
+        print("diff_frames.json が見つかりません。")
         return None
 
     # YOLOの出力データを読み込む
     with open(frame_data_path, "r", encoding="utf-8") as f:
         frame_data = json.load(f)
 
-    print(f"🔁 AIによる処理を開始します。動画グループ数: {len(frame_data)}")
+    print(f"AIによる処理を開始します。動画グループ数: {len(frame_data)}")
 
     for group_idx, video_group in enumerate(frame_data):  # 各グループは1つの動画に対応
-        print(f"🎬 グループ {group_idx+1}/{len(frame_data)}: {len(video_group)} 枚のフレームを比較")
+        print(f"グループ {group_idx+1}/{len(frame_data)}: {len(video_group)} 枚のフレームを比較")
 
         for frame_idx, frame_pair in enumerate(video_group):
             org_frame_path = os.path.join(result_dir, frame_pair["org_frame"])
             compare_frame_path = os.path.join(result_dir, frame_pair["compare_frame"])
 
-            print(f"🟦 [{group_idx+1}-{frame_idx+1}] 比較中: {frame_pair['org_frame']} vs {frame_pair['compare_frame']}")
+            print(f"[{group_idx+1}-{frame_idx+1}] 比較中: {frame_pair['org_frame']} vs {frame_pair['compare_frame']}")
 
             # AIによる画像比較
             ai_result = compare_images(
@@ -111,6 +111,16 @@ def handle_diff_frames(result_dir):
                 compare_frame_path,
                 prompt="2枚の画像の違いを説明してください。"
             )
+
+            # prompt = """次の2枚の車載画面のフレーム画像の違いを詳しく説明してください。
+            #             どの部分が変化しているのか（ボタン、アイコン、文字、背景、地図表示など）を具体的に比較し、
+            #             画面の状態がどのように異なるかを明確にしてください。
+            #             例：1枚目はホーム画面でメニューアイコンや車両情報が表示されているが、
+            #             2枚目はナビゲーション（地図）画面で地図や現在地アイコンが中心に表示されている。
+            #             出力形式：
+            #             - 主要な違い：
+            #             - 変化したUI要素：
+            #             - 推定される画面モードの違い："""
 
             # 結果またはエラーメッセージを取得
             diff_text_ai = ai_result.get("response") if not ai_result.get("error") else ai_result["error"]
@@ -125,5 +135,5 @@ def handle_diff_frames(result_dir):
 
             time.sleep(1)  # APIを連続で呼び出しすぎないように少し待機
 
-    print("✅ diff_frames.json に diff_text_ai を直接更新しました。")
+    print("diff_frames.json に diff_text_ai を直接更新しました。")
     return frame_data_path

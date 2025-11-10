@@ -1,117 +1,106 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>解析結果 - AI映像検出</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-  <style>
-    .container {
-      min-width: 100%;
-    }
-
-    .box-video {
-      width: 100%;
-      position: relative;
-      display: flex;
-      gap: 10px;
-    }
-
-    .org-video {
-      width: 50% !important;
-      position: sticky;
-      top: 10px;
-      height: fit-content;
-    }
-
-    .compare-video {
-      width: 50%;
-      padding-top: 8px;
-    }
-
-    .video-item {
-      width: 100%;
-      margin: 20px 0;
-      display: inline-block;
-      text-align: center;
-    }
-
-    .video-item.master {
-      padding: 5px;
-      border: 3px solid transparent;
-      border-color: #00bcd4;
-      box-shadow: 0 0 15px rgba(0, 178, 187, 0.6);
-    }
-
-    video {
-      width: 100%;
-      display: block;
-      margin: 0 auto;
-    }
-
-    .set-master-btn {
-      margin-top: 5px;
-      background-color: #c80025;
-    }
-
-    .set-master-btn:hover {
-      background: #a3001e;
-    }
-
-    .box-button {
-      margin: 20px 0;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn-frame {
-      background-color: #28a745;
-    }
-
-    .btn-frame:hover {
-      background-color: #218838;
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
-  <div class="container">
-    <form action="/shutdown" method="post" class="form-exit" onsubmit="return true;">
-      <button type="submit" class="exit-btn">
-        終了
-      </button>
-    </form>
-
-    <h3>解析結果の動画一覧</h3>
-
-    <div class="box-button">
-      <a href="{{ url_for('download', filename=excel_file) }}" class="btn">解析結果（Excel）をダウンロード</a>
-      <a href="{{ url_for('diff_frames') }}" class="btn btn-frame">差分フレームを表示</a>
-      <a href="{{ url_for('index') }}" class="btn">トップへ戻る</a>
-    </div>
-    <hr>
-
-    <div class="box-video">
-      <div class="video-item org-video">
-        <p>{{ org_path.split('/')[-1] }}</p>
-        <video width="480" controls preload="metadata">
-          <source src="{{ url_for('results_file', filename=org_path.split('results/')[-1]) }}" type="video/mp4">
-          このブラウザは video タグをサポートしていません。
-        </video>
-      </div>
-      <div class="compare-video">
-        {% for video in video_paths %} 
-        <div class="video-item">
-          <p>{{ video.split('/')[-1] }}</p>
-          <video width="480" controls preload="metadata">
-            <source src="{{ url_for('results_file', filename=video.split('results/')[-1]) }}" type="video/mp4">
-            このブラウザは video タグをサポートしていません。
-          </video>
+  <div class="app-container result-page">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <div class="logo-icon">
+            <i class="fas fa-video"></i>
+          </div>
+          <div class="logo-text">
+            <h1 class="app-title">解析結果</h1>
+            <p class="app-subtitle">動画比較分析結果</p>
+          </div>
         </div>
-        {% endfor %}
+        <form action="/shutdown" method="post" class="form-exit">
+          <button type="submit" class="exit-btn">
+            <i class="fas fa-power-off"></i>
+            <span>終了</span>
+          </button>
+        </form>
       </div>
-    </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="result-header">
+        <div class="success-message">
+          <div class="success-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="message-content">
+            <h2>動画解析が完了しました</h2>
+            <p>AIによる動画比較分析の結果をご確認ください</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <a href="{{ url_for('download', filename=excel_file) }}" class="action-btn primary-btn">
+          <i class="fas fa-file-excel"></i>
+          解析結果（Excel）をダウンロード
+        </a>
+        <a href="{{ url_for('diff_frames') }}" class="action-btn primary-btn btn-frame">
+          <i class="fas fa-columns"></i>
+          差分フレームを表示
+        </a>
+        <a href="{{ url_for('index') }}" class="action-btn secondary-btn">
+          <i class="fas fa-home"></i>
+          トップへ戻る
+        </a>
+      </div>
+
+      <div class="video-comparison-section">
+        <h3 class="section-title">
+          <i class="fas fa-play-circle"></i>
+          解析結果の動画一覧
+        </h3>
+        
+        <div class="box-video">
+          <div class="video-item org-video master">
+            <div class="video-header">
+              <h4>{{ org_path.split('/')[-1] }}</h4>
+              <div class="video-badge">メイン</div>
+            </div>
+            <video width="480" controls preload="metadata">
+              <source src="{{ url_for('results_file', filename=org_path.split('results/')[-1]) }}" type="video/mp4">
+              このブラウザは video タグをサポートしていません。
+            </video>
+            <div class="video-instruction">
+              <i class="fas fa-mouse-pointer"></i>
+              クリックで再生/一時停止
+            </div>
+          </div>
+          <div class="compare-video">
+            {% for video in video_paths %}
+            <div class="video-item compare">
+              <div class="video-header">
+                <h4>{{ video.split('/')[-1] }}</h4>
+                <div class="video-instruction">
+                  <i class="fas fa-hand-pointer"></i>
+                  クリックでメイン動画に設定
+                </div>
+              </div>
+              <video width="480" controls preload="metadata">
+                <source src="{{ url_for('results_file', filename=video.split('results/')[-1]) }}" type="video/mp4">
+                このブラウザは video タグをサポートしていません。
+              </video>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 
   <script>
@@ -122,16 +111,16 @@
 
       let master = videos[0];
       let masterItem = videoItems[0];
-      masterItem.classList.add("master");
+      masterItem.classList.add("master-active");
 
       function setMaster(newMaster) {
         master = newMaster;
 
-        videoItems.forEach(item => item.classList.remove("master"));
+        videoItems.forEach(item => item.classList.remove("master-active"));
         const parentItem = newMaster.closest(".video-item");
-        parentItem.classList.add("master");
+        parentItem.classList.add("master-active");
 
-        console.log("🟢 メイン動画を変更:", newMaster.querySelector("source").src);
+        console.log("メイン動画を変更:", newMaster.querySelector("source").src);
       }
 
       function bindSyncEvents() {
@@ -186,9 +175,9 @@
           if (video === master) {
             // masterなら再生/停止切り替え
             if (video.paused) {
-              video.pause();
-            } else {
               video.play();
+            } else {
+              video.pause();
             }
           } else {
             setMaster(video);
@@ -198,7 +187,5 @@
       });
     });
   </script>
-
 </body>
-
 </html>

@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>So sánh Ảnh với AI</title>
+    <title>AIによる画像比較</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-images"></i> So sánh Ảnh với AI</h1>
-            <p>Tải lên hai ảnh và AI sẽ phân tích sự khác biệt giữa chúng</p>
+            <h1><i class="fas fa-images"></i> AIによる画像比較</h1>
+            <p>2枚の画像をアップロードして、AIがその違いを分析します。</p>
         </header>
 
         <div class="upload-section">
@@ -20,7 +20,7 @@
                     <div class="upload-box">
                         <div class="upload-area" id="uploadArea1">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Kéo thả ảnh thứ nhất hoặc <span>bấm để chọn</span></p>
+                            <p>1枚目の画像をドラッグ＆ドロップ、または<span>クリックして選択</span></p>
                             <input type="file" id="image1" name="image1" accept="image/*" hidden>
                         </div>
                         <div class="image-preview" id="preview1"></div>
@@ -33,7 +33,7 @@
                     <div class="upload-box">
                         <div class="upload-area" id="uploadArea2">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Kéo thả ảnh thứ hai hoặc <span>bấm để chọn</span></p>
+                            <p>2枚目の画像をドラッグ＆ドロップ、または<span>クリックして選択</span></p>
                             <input type="file" id="image2" name="image2" accept="image/*" hidden>
                         </div>
                         <div class="image-preview" id="preview2"></div>
@@ -41,27 +41,27 @@
                 </div>
 
                 <div class="prompt-section">
-                    <label for="prompt"><i class="fas fa-comment-alt"></i> Hướng dẫn cho AI:</label>
-                    <textarea id="prompt" name="prompt" placeholder="Ví dụ: So sánh hai ảnh này, chỉ ra điểm giống và khác nhau...">Compare the two images and describe the differences and similarities in detail.</textarea>
+                    <label for="prompt"><i class="fas fa-comment-alt"></i> AIへの指示：</label>
+                    <textarea id="prompt" name="prompt" placeholder="例：この2枚の画像を比較して、似ている点と違う点を説明してください。">この2枚の画像を比較し、詳細に類似点と相違点を説明してください。</textarea>
                 </div>
 
                 <button type="submit" id="compareBtn" class="compare-button">
-                    <i class="fas fa-robot"></i> So sánh với AI
+                    <i class="fas fa-robot"></i> AIで比較する
                 </button>
             </form>
         </div>
 
         <div class="result-section" id="resultSection" style="display: none;">
-            <h2><i class="fas fa-chart-bar"></i> Kết quả phân tích</h2>
+            <h2><i class="fas fa-chart-bar"></i> 分析結果</h2>
             <div class="timing-info" id="timingInfo"></div>
             <div class="result-content" id="resultContent">
-                <!-- Kết quả sẽ được hiển thị ở đây -->
+                <!-- 結果がここに表示されます -->
             </div>
         </div>
 
         <div class="loading" id="loading" style="display: none;">
             <div class="spinner"></div>
-            <p>AI đang phân tích ảnh...</p>
+            <p>AIが画像を分析しています...</p>
             <div class="loading-stats" id="loadingStats"></div>
         </div>
     </div>
