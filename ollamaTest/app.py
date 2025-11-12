@@ -40,7 +40,7 @@ def compress_image(image_path, max_size=(512, 512), quality=80):
         return None
 
 # --- IMAGE COMPARISON FUNCTION ---
-def compare_images(img1_path, img2_path, prompt="Compare the two images"):
+def compare_images(img1_path, img2_path, prompt="Compare the two images", model="gemma3:12b"):
     url = "https://lsi-dvc.aa0.netvolante.jp/ollama/api/generate"  # Ollama API endpoint
     headers = {"Content-Type": "application/json"}
 
@@ -51,10 +51,10 @@ def compare_images(img1_path, img2_path, prompt="Compare the two images"):
     compress_time = time.time() - compress_start
 
     if not img1_base64 or not img2_base64:
-        return {"error": "❌ 画像を圧縮できませんでした。"}  # Failed to compress images
+        return {"error": "画像を圧縮できませんでした。"}  # Failed to compress images
 
     data = {
-        "model": "gemma3:12b",
+        "model": "qwen2.5vl:3b",
         "prompt": prompt,
         "images": [img1_base64, img2_base64],
         "stream": False

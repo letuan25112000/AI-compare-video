@@ -45,6 +45,62 @@
         </div>
       </div>
 
+      <!-- AI API Settings Section -->
+      <!-- <div class="settings-section" style="background: rgba(255, 255, 255, 0.95);">
+        <div class="section-header">
+          <h3 class="section-subtitle">
+            <i class="fas fa-robot"></i>
+            AI API設定
+          </h3>
+        </div>
+        
+        <form id="aiSettingsForm" class="ai-settings-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-brain"></i>
+                AIモデル選択
+              </label>
+              <select name="ai_model_api" class="form-select" id="aiModelSelect" required>
+                {% for model in ai_models %}
+                <option value="{{ model }}" {% if model.value == current_ai_model %}selected{% endif %}>
+                  {{ model }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                使用するAIモデルを選択
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fas fa-comment-alt"></i>
+                AIプロンプト
+              </label>
+              <textarea name="ai_prompt" class="form-textarea" id="aiPromptTextarea" 
+                        placeholder="AIへの指示を入力してください" rows="4" required>{{ current_ai_prompt }}</textarea>
+              <div class="form-hint">
+                <i class="fas fa-info-circle"></i>
+                AIに対する分析指示を入力
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-btn" id="reanalyzeBtn">
+              <i class="fas fa-sync-alt"></i>
+              AIで再分析を実行
+            </button>
+            <button type="button" class="secondary-btn" id="stopAnalysisBtn" style="display: none;">
+              <i class="fas fa-stop"></i>
+              分析を停止
+            </button>
+          </div>
+        </form>
+      </div> -->
+
       <div class="action-bar">
         <a href="{{ url_for('feature') }}" class="action-btn secondary-btn">
           <i class="fas fa-arrow-left"></i>
@@ -56,11 +112,31 @@
         </a>
       </div>
 
+      <!-- Analysis Progress -->
+      <div id="analysisProgress" class="analysis-progress" style="display: none;">
+        <div class="progress-header">
+          <h4>
+            <i class="fas fa-spinner fa-spin"></i>
+            AI分析実行中
+          </h4>
+          <div class="progress-stats">
+            <span id="progressText">処理中...</span>
+          </div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-details">
+          <div id="currentFrame">準備中...</div>
+          <div id="processingTime">-</div>
+        </div>
+      </div>
+
       {% if frame_data %}
         <div class="diff-results">
           {% for data_item in frame_data %}
             {% for frame in data_item %}
-              <div class="frame-pair">
+              <div class="frame-pair" data-frame-id="{{ frame.org_frame | replace('.','_') }}">
                 <div class="frame-header">
                   <div class="frame-title">
                     <h3>
@@ -72,6 +148,15 @@
                       差分発生時間: {{ frame.frame_time }}
                     </div>
                   </div>
+                  {% if frame.timing %}
+                  <div class="frame-timing">
+                    <small>
+                      <i class="fas fa-stopwatch"></i>
+                      処理時間: {{ frame.timing.total_time }}秒
+                      (圧縮: {{ frame.timing.compress_time }}秒, API: {{ frame.timing.api_time }}秒)
+                    </small>
+                  </div>
+                  {% endif %}
                 </div>
 
                 <div class="frame-comparison">
@@ -117,7 +202,13 @@
                     <div class="diff-details" id="diff-{{ frame.org_frame | replace('.','_') }}">
                       {% if frame.diff_text_ai %}
                         <div class="ai-analysis-result">
-                          {{ frame.diff_text_ai }}
+                          <div class="ai-result-header">
+                            <span class="model-badge">{{ frame.ai_model_used or current_ai_model }}</span>
+                            {% if frame.timing %}
+                            <span class="time-badge">{{ frame.timing.total_time }}秒</span>
+                            {% endif %}
+                          </div>
+                          <div class="result-content">{{ frame.diff_text_ai }}</div>
                         </div>
                       {% else %}
                         <div class="loading-analysis">
@@ -151,30 +242,182 @@
     </main>
   </div>
 
-  <!-- 🔁 AI解析結果を自動更新 -->
+  <script type="application/json" id="jsConfig">
+    {
+      "allComplete": {{ 'true' if all_analysis_complete else 'false' }},
+      "currentAiModel": "{{ current_ai_model }}",
+      "currentAiPrompt": "{{ current_ai_prompt }}"
+    }
+  </script>
+
   <script>
+    let reloadTimer = null;
+    let isAnalysisRunning = false;
+    let currentAnalysisController = null;
+
+    // 自動更新関数
     async function reloadDiffs() {
+      if (isAnalysisRunning) return; // 分析中は自動更新を一時停止
+
       try {
         const res = await fetch(window.location.href, { cache: "no-store" });
         const html = await res.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, "text/html");
 
-        // diff-details 部分を再描画
+        let updated = false;
+        let allDone = true;
+
         document.querySelectorAll(".diff-details").forEach(div => {
           const id = div.id;
           const newDiv = doc.getElementById(id);
+
           if (newDiv && newDiv.innerHTML !== div.innerHTML) {
             div.innerHTML = newDiv.innerHTML;
+            updated = true;
+          }
+
+          // まだ読み込み中の場合 → 完了していません
+          if (div.querySelector(".loading-analysis")) {
+            allDone = false;
           }
         });
+
+        // すべての結果が利用可能な場合 → 更新を停止
+        if (allDone) {
+          console.log("すべてのAI分析が完了しました。自動更新を停止します。");
+          clearInterval(reloadTimer);
+        } else if (updated) {
+          console.log("ページを更新しました。");
+        }
       } catch (err) {
         console.error("更新に失敗しました:", err);
       }
     }
 
-    // 5秒ごとに更新
-    setInterval(reloadDiffs, 5000);
+    // AI再分析実行関数
+    async function startReanalysis() {
+      if (isAnalysisRunning) {
+        alert('分析は既に実行中です。');
+        return;
+      }
+
+      const model = document.getElementById('aiModelSelect').value;
+      const prompt = document.getElementById('aiPromptTextarea').value;
+
+      if (!model || !prompt) {
+        alert('AIモデルとプロンプトを入力してください。');
+        return;
+      }
+
+      isAnalysisRunning = true;
+      currentAnalysisController = new AbortController();
+      
+      // UI更新
+      document.getElementById('reanalyzeBtn').style.display = 'none';
+      document.getElementById('stopAnalysisBtn').style.display = 'inline-flex';
+      document.getElementById('analysisProgress').style.display = 'block';
+
+      try {
+        const response = await fetch('/reanalyze_frames', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ai_model: model,
+            ai_prompt: prompt
+          }),
+          signal: currentAnalysisController.signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          alert('AI再分析が完了しました。');
+          // ページをリロードして新しい結果を表示
+          location.reload();
+        } else {
+          throw new Error(data.error || '再分析に失敗しました。');
+        }
+
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('分析がユーザーによって停止されました。');
+        } else {
+          console.error('再分析エラー:', error);
+          alert('再分析中にエラーが発生しました: ' + error.message);
+        }
+      } finally {
+        stopAnalysis();
+      }
+    }
+
+    // 分析停止関数
+    function stopAnalysis() {
+      isAnalysisRunning = false;
+      if (currentAnalysisController) {
+        currentAnalysisController.abort();
+        currentAnalysisController = null;
+      }
+      
+      // UIを元に戻す
+      document.getElementById('reanalyzeBtn').style.display = 'inline-flex';
+      document.getElementById('stopAnalysisBtn').style.display = 'none';
+      document.getElementById('analysisProgress').style.display = 'none';
+    }
+
+    // 進捗状況更新関数（サーバーからSSEなどで受け取る想定）
+    function updateProgress(progress) {
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      const currentFrame = document.getElementById('currentFrame');
+      const processingTime = document.getElementById('processingTime');
+
+      if (progressFill) {
+        progressFill.style.width = `${progress.percentage}%`;
+      }
+      if (progressText) {
+        progressText.textContent = `進捗: ${progress.current}/${progress.total} (${progress.percentage}%)`;
+      }
+      if (currentFrame) {
+        currentFrame.textContent = `処理中: ${progress.currentFrame || '準備中'}`;
+      }
+      if (processingTime) {
+        processingTime.textContent = `処理時間: ${progress.elapsedTime || '-'}`;
+      }
+    }
+
+    // イベントリスナー
+    document.getElementById('aiSettingsForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      startReanalysis();
+    });
+
+    document.getElementById('stopAnalysisBtn').addEventListener('click', stopAnalysis);
+
+    // テキストエリアの自動リサイズ
+    const textarea = document.getElementById('aiPromptTextarea');
+    if (textarea) {
+      textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+      });
+      
+      setTimeout(() => {
+        textarea.style.height = (textarea.scrollHeight) + 'px';
+      }, 100);
+    }
+
+    // 自動更新開始（完了していない場合のみ）
+    const config = JSON.parse(document.getElementById('jsConfig').textContent);
+    if (!config.allComplete) {
+        reloadTimer = setInterval(reloadDiffs, 5000);
+    }
   </script>
 </body>
 </html>

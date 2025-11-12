@@ -6,134 +6,155 @@ import io
 import requests
 from PIL import Image
 
-def compress_image(image_path, max_size=(512, 512), quality=80):
+from config import API_MODELS, API_PROMPT
+
+
+class ImageDiffAI:
     """
-    画像を圧縮してサイズを小さくし、JPEG形式に変換してBase64文字列として返す。
+    2枚の画像をAIに送信して比較し、diff_frames.jsonを更新するクラス。
     """
-    try:
-        with Image.open(image_path) as img:
-            img = img.convert("RGB")
-            img.thumbnail(max_size)
-            buffer = io.BytesIO()
-            img.save(buffer, format="JPEG", quality=quality)
 
-            # Base64にエンコード
-            img_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            return img_base64
-    except Exception as e:
-        print(f"画像圧縮エラー: {image_path} -> {e}")
-        return None
-    
+    def __init__(
+        self,
+        result_dir,
+        api_model=API_MODELS[0],
+        api_prompt=API_PROMPT,
+        api_url="https://lsi-dvc.aa0.netvolante.jp/ollama/api/generate",
+        max_size=(512, 512),
+        quality=80,
+        delay=1.0, 
+        stop_event=None
+    ):
+        self.result_dir = result_dir
+        self.api_model = api_model
+        self.api_prompt = api_prompt
+        self.api_url = api_url
+        self.max_size = max_size
+        self.quality = quality
+        self.delay = delay
+        self.headers = {"Content-Type": "application/json"}
+        self.stop_event = stop_event
 
-def compare_images(img1_path, img2_path, prompt="2枚の画像を比較してください。"):
-    url = "https://lsi-dvc.aa0.netvolante.jp/ollama/api/generate"  # Ollama APIエンドポイント
-    headers = {"Content-Type": "application/json"}
+    # --------------------------------------------------
+    # 画像を圧縮してBase64文字列に変換
+    # --------------------------------------------------
+    def compress_image(self, image_path):
+        try:
+            with Image.open(image_path) as img:
+                img = img.convert("RGB")
+                img.thumbnail(self.max_size)
+                buffer = io.BytesIO()
+                img.save(buffer, format="JPEG", quality=self.quality)
+                return base64.b64encode(buffer.getvalue()).decode("utf-8")
+        except Exception as e:
+            print(f"画像圧縮エラー: {image_path} -> {e}")
+            return None
 
-    # 圧縮時間を計測
-    compress_start = time.time()
-    img1_base64 = compress_image(img1_path)
-    img2_base64 = compress_image(img2_path)
-    compress_time = time.time() - compress_start
+    # --------------------------------------------------
+    # 2枚の画像をAIで比較
+    # --------------------------------------------------
+    def compare_images(self, img1_path, img2_path):
+        compress_start = time.time()
+        img1_base64 = self.compress_image(img1_path)
+        img2_base64 = self.compress_image(img2_path)
+        compress_time = time.time() - compress_start
 
-    if not img1_base64 or not img2_base64:
-        return {"error": "画像を圧縮できませんでした。"}
+        if not img1_base64 or not img2_base64:
+            return {"error": "画像を圧縮できませんでした。"}
 
-    data = {
-        "model": "gemma3:12b",
-        "prompt": prompt,
-        "images": [img1_base64, img2_base64],
-        "stream": False
-    }
+        print(f"AIモデル「{self.api_model}」を使用して画像を比較中...")
 
-    try:
-        # APIリクエスト時間を計測
-        api_start = time.time()
-        response = requests.post(url, headers=headers, json=data)
-        api_time = time.time() - api_start
-        
-        if response.status_code == 200:
-            result = response.json()
-            return {
-                "response": result.get('response', 'AIからの応答がありません。'),
-                "timing": {
-                    "compress_time": round(compress_time, 2),
-                    "api_time": round(api_time, 2),
-                    "total_time": round(compress_time + api_time, 2)
-                }
-            }
-        else:
-            print(f"APIエラー: {response.status_code} - {response.text}")
-            return {
-                "error": f"APIエラー: {response.status_code}",
-                "timing": {
-                    "compress_time": round(compress_time, 2),
-                    "api_time": round(api_time, 2),
-                    "total_time": round(compress_time + api_time, 2)
-                }
-            }
-    except Exception as e:
-        print(f"接続エラー: {e}")
-        return {
-            "error": f"接続エラー: {str(e)}",
-            "timing": {
-                "compress_time": round(compress_time, 2),
-                "api_time": 0,
-                "total_time": round(compress_time, 2)
-            }
+        data = {
+            "model": self.api_model,
+            "prompt": self.api_prompt,
+            "images": [img1_base64, img2_base64],
+            "stream": False
         }
-    
 
-def handle_diff_frames(result_dir):
-    frame_data_path = os.path.join(result_dir, "diff_frames.json")
+        try:
+            api_start = time.time()
+            response = requests.post(self.api_url, headers=self.headers, json=data)
+            api_time = time.time() - api_start
 
-    if not os.path.exists(frame_data_path):
-        print("diff_frames.json が見つかりません。")
-        return None
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "response": result.get('response', 'AIからの応答がありません。'),
+                    "timing": {
+                        "compress_time": round(compress_time, 2),
+                        "api_time": round(api_time, 2),
+                        "total_time": round(compress_time + api_time, 2)
+                    }
+                }
+            else:
+                print(f"APIエラー: {response.status_code} - {response.text}")
+                return {
+                    "error": f"APIエラー: {response.status_code}",
+                    "timing": {
+                        "compress_time": round(compress_time, 2),
+                        "api_time": round(api_time, 2),
+                        "total_time": round(compress_time + api_time, 2)
+                    }
+                }
+        except Exception as e:
+            print(f"接続エラー: {e}")
+            return {
+                "error": f"接続エラー: {str(e)}",
+                "timing": {
+                    "compress_time": round(compress_time, 2),
+                    "api_time": 0,
+                    "total_time": round(compress_time, 2)
+                }
+            }
 
-    # YOLOの出力データを読み込む
-    with open(frame_data_path, "r", encoding="utf-8") as f:
-        frame_data = json.load(f)
+    # --------------------------------------------------
+    # diff_frames.jsonを処理してAIの結果を追加
+    # --------------------------------------------------
+    def handle_diff_frames(self):
+        frame_data_path = os.path.join(self.result_dir, "diff_frames.json")
 
-    print(f"AIによる処理を開始します。動画グループ数: {len(frame_data)}")
+        if not os.path.exists(frame_data_path):
+            print("diff_frames.json が見つかりません。")
+            return None
 
-    for group_idx, video_group in enumerate(frame_data):  # 各グループは1つの動画に対応
-        print(f"グループ {group_idx+1}/{len(frame_data)}: {len(video_group)} 枚のフレームを比較")
+        with open(frame_data_path, "r", encoding="utf-8") as f:
+            frame_data = json.load(f)
 
-        for frame_idx, frame_pair in enumerate(video_group):
-            org_frame_path = os.path.join(result_dir, frame_pair["org_frame"])
-            compare_frame_path = os.path.join(result_dir, frame_pair["compare_frame"])
+        print(f"AIによる処理を開始します。動画グループ数: {len(frame_data)}")
 
-            print(f"[{group_idx+1}-{frame_idx+1}] 比較中: {frame_pair['org_frame']} vs {frame_pair['compare_frame']}")
+        for group_idx, video_group in enumerate(frame_data):
+            print(f"グループ {group_idx+1}/{len(frame_data)}: {len(video_group)} 枚のフレームを比較中...")
 
-            # AIによる画像比較
-            ai_result = compare_images(
-                org_frame_path,
-                compare_frame_path,
-                prompt="2枚の画像の違いを説明してください。"
-            )
+            for frame_idx, frame_pair in enumerate(video_group):
+                if self.stop_event and self.stop_event.is_set():
+                    print("処理が停止されました。")
+                    return
+                
+                org_frame_path = os.path.join(self.result_dir, frame_pair["org_frame"])
+                compare_frame_path = os.path.join(self.result_dir, frame_pair["compare_frame"])
 
-            # prompt = """次の2枚の車載画面のフレーム画像の違いを詳しく説明してください。
-            #             どの部分が変化しているのか（ボタン、アイコン、文字、背景、地図表示など）を具体的に比較し、
-            #             画面の状態がどのように異なるかを明確にしてください。
-            #             例：1枚目はホーム画面でメニューアイコンや車両情報が表示されているが、
-            #             2枚目はナビゲーション（地図）画面で地図や現在地アイコンが中心に表示されている。
-            #             出力形式：
-            #             - 主要な違い：
-            #             - 変化したUI要素：
-            #             - 推定される画面モードの違い："""
+                print(f"[{group_idx+1}-{frame_idx+1}] 比較中: {frame_pair['org_frame']} vs {frame_pair['compare_frame']}")
 
-            # 結果またはエラーメッセージを取得
-            diff_text_ai = ai_result.get("response") if not ai_result.get("error") else ai_result["error"]
+                ai_result = self.compare_images(org_frame_path, compare_frame_path)
+                diff_text_ai = ai_result.get("response") if not ai_result.get("error") else ai_result["error"]
 
-            # データを更新
-            frame_pair["diff_text_ai"] = diff_text_ai
-            frame_pair["timing"] = ai_result.get("timing", {})
+                frame_pair["diff_text_ai"] = diff_text_ai
+                frame_pair["timing"] = ai_result.get("timing", {})
 
-            # 各フレームごとにJSONを更新して保存
-            with open(frame_data_path, "w", encoding="utf-8") as f:
-                json.dump(frame_data, f, ensure_ascii=False, indent=2)
+                # 各フレームごとにJSONを更新して保存
+                with open(frame_data_path, "w", encoding="utf-8") as f:
+                    json.dump(frame_data, f, ensure_ascii=False, indent=2)
 
-            time.sleep(1)  # APIを連続で呼び出しすぎないように少し待機
+                time.sleep(self.delay)
 
-    print("diff_frames.json に diff_text_ai を直接更新しました。")
-    return frame_data_path
+        print("diff_frames.json に diff_text_ai を更新しました。")
+        return frame_data_path
+
+
+# --------------------------------------------------
+# 実行例
+# --------------------------------------------------
+if __name__ == "__main__":
+    result_dir = "./results"
+    ai_diff = ImageDiffAI(result_dir)
+    ai_diff.handle_diff_frames()

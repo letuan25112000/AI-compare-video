@@ -43,102 +43,165 @@
         </div>
 
         <form id="uploadForm" class="upload-form" action="/feature" method="POST" enctype="multipart/form-data">
-          <div class="form-row">
+          <!-- Video Analysis Settings Section -->
+          <div class="settings-section">
+            <div class="section-header">
+              <h3 class="section-subtitle">
+                <i class="fas fa-cog"></i>
+                動画解析設定
+              </h3>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  <i class="fas fa-film"></i>
+                  動画FPS
+                </label>
+                <input type="number" name="fps" class="form-input" placeholder="例: 30" required />
+                <div class="form-hint">
+                  <i class="fas fa-info-circle"></i>
+                  動画のフレームレートを指定
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  <i class="fas fa-tachometer-alt"></i>
+                  処理フレーム数/秒
+                </label>
+                <input type="number" name="process_fps" class="form-input" placeholder="例: 5" required />
+                <div class="form-hint">
+                  <i class="fas fa-info-circle"></i>
+                  1秒間に処理するフレーム数
+                </div>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">
-                <i class="fas fa-film"></i>
-                動画FPS
+                <i class="fas fa-clock"></i>
+                画面遷移判定待機時間 (ms)
               </label>
-              <input type="number" name="fps" class="form-input" placeholder="例: 30" required />
+              <input type="number" name="threshold" class="form-input" placeholder="例: 1000" required />
               <div class="form-hint">
                 <i class="fas fa-info-circle"></i>
-                動画のフレームレートを指定
+                画面遷移を判断するまでの待機時間
               </div>
+            </div>
+          </div>
+
+          <!-- File Upload Section -->
+          <div class="settings-section">
+            <div class="section-header">
+              <h3 class="section-subtitle">
+                <i class="fas fa-upload"></i>
+                ファイルアップロード
+              </h3>
             </div>
 
             <div class="form-group">
               <label class="form-label">
-                <i class="fas fa-tachometer-alt"></i>
-                処理フレーム数/秒
+                <i class="fas fa-cogs"></i>
+                AIモデルファイル
               </label>
-              <input type="number" name="process_fps" class="form-input" placeholder="例: 5" required />
-              <div class="form-hint">
-                <i class="fas fa-info-circle"></i>
-                1秒間に処理するフレーム数
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-clock"></i>
-              画面遷移判定待機時間 (ms)
-            </label>
-            <input type="number" name="threshold" class="form-input" placeholder="例: 1000" required />
-            <div class="form-hint">
-              <i class="fas fa-info-circle"></i>
-              画面遷移を判断するまでの待機時間
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fas fa-cogs"></i>
-              AIモデルファイル
-            </label>
-            <div class="file-upload-area" id="modelUploadArea">
-              <input type="file" name="ai_model" id="modelInput" accept="*" required />
-              <div class="upload-placeholder">
-                <div class="upload-icon">
-                  <i class="fas fa-cube"></i>
-                </div>
-                <div class="upload-text">
-                  <strong>AIモデルファイルを選択</strong>
-                  <small>学習済みモデルファイルをアップロード</small>
-                </div>
-              </div>
-              <div class="file-list" id="modelList"></div>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">
-                <i class="fas fa-video"></i>
-                元の動画
-              </label>
-              <div class="file-upload-area" id="video1UploadArea">
-                <input type="file" name="video1" id="video1Input" accept="video/*" required />
+              <div class="file-upload-area" id="modelUploadArea">
+                <input type="file" name="ai_model" id="modelInput" accept="*" required />
                 <div class="upload-placeholder">
                   <div class="upload-icon">
-                    <i class="fas fa-file-video"></i>
+                    <i class="fas fa-cube"></i>
                   </div>
                   <div class="upload-text">
-                    <strong>基準動画を選択</strong>
-                    <small>比較の基準となる動画</small>
+                    <strong>AIモデルファイルを選択</strong>
+                    <small>学習済みモデルファイルをアップロード</small>
                   </div>
                 </div>
-                <div class="file-list" id="video1List"></div>
+                <div class="file-list" id="modelList"></div>
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">
-                <i class="fas fa-videos"></i>
-                比較動画
-              </label>
-              <div class="file-upload-area" id="videosUploadArea">
-                <input type="file" name="videos" id="videosInput" accept="video/*" multiple required />
-                <div class="upload-placeholder">
-                  <div class="upload-icon">
-                    <i class="fas fa-layer-group"></i>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  <i class="fas fa-video"></i>
+                  元の動画
+                </label>
+                <div class="file-upload-area" id="video1UploadArea">
+                  <input type="file" name="video1" id="video1Input" accept="video/*" required />
+                  <div class="upload-placeholder">
+                    <div class="upload-icon">
+                      <i class="fas fa-file-video"></i>
+                    </div>
+                    <div class="upload-text">
+                      <strong>基準動画を選択</strong>
+                      <small>比較の基準となる動画</small>
+                    </div>
                   </div>
-                  <div class="upload-text">
-                    <strong>比較動画を選択</strong>
-                    <small>複数選択可能</small>
-                  </div>
+                  <div class="file-list" id="video1List"></div>
                 </div>
-                <div class="file-list" id="videosList"></div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  <i class="fas fa-videos"></i>
+                  比較動画
+                </label>
+                <div class="file-upload-area" id="videosUploadArea">
+                  <input type="file" name="videos" id="videosInput" accept="video/*" multiple required />
+                  <div class="upload-placeholder">
+                    <div class="upload-icon">
+                      <i class="fas fa-layer-group"></i>
+                    </div>
+                    <div class="upload-text">
+                      <strong>比較動画を選択</strong>
+                      <small>複数選択可能</small>
+                    </div>
+                  </div>
+                  <div class="file-list" id="videosList"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          
+          <!-- AI API Settings Section -->
+          <div class="settings-section">
+            <div class="section-header">
+              <h3 class="section-subtitle">
+                <i class="fas fa-robot"></i>
+                AI API設定
+              </h3>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  <i class="fas fa-brain"></i>
+                  AIモデル選択
+                </label>
+                <select name="ai_model_api" class="form-select" required>
+                  {% for model in ai_models %}
+                  <option value="{{ model }}" {% if model.default %}selected{% endif %}>
+                    {{ model }}
+                  </option>
+                  {% endfor %}
+                </select>
+                <div class="form-hint">
+                  <i class="fas fa-info-circle"></i>
+                  使用するAIモデルを選択
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  <i class="fas fa-comment-alt"></i>
+                  AIプロンプト
+                </label>
+                <textarea name="ai_prompt" class="form-textarea" placeholder="AIへの指示を入力してください" rows="4">{{ default_prompt }}</textarea>
+                <div class="form-hint">
+                  <i class="fas fa-info-circle"></i>
+                  AIに対する分析指示を入力
+                </div>
               </div>
             </div>
           </div>
@@ -242,6 +305,20 @@
     form.addEventListener("submit", () => {
       loading.style.display = "flex";
     });
+
+    // Auto-resize textarea
+    const textarea = document.querySelector('.form-textarea');
+    if (textarea) {
+      textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+      });
+      
+      // Trigger initial resize
+      setTimeout(() => {
+        textarea.style.height = (textarea.scrollHeight) + 'px';
+      }, 100);
+    }
   </script>
 </body>
 </html>
