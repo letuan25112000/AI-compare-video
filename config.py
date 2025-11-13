@@ -52,7 +52,7 @@ FFMPEG_PATH = os.path.join(BASE_DIR,"ffmpeg", "ffmpeg.exe")
 # -----------------------------
 # Model api
 # -----------------------------
-API_MODELS = ["gemma3:4b", "gemma3:12b"]
+API_MODELS = ["gemma3:12b", "gemma3:4b"]
 API_PROMPT = """次の2枚の車載画面のフレーム画像の違いを詳しく説明してください。
                 どの部分が変化しているのか（ボタン、アイコン、文字、背景、地図表示など）を具体的に比較し、
                 画面の状態がどのように異なるかを明確にしてください。

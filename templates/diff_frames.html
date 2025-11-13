@@ -46,7 +46,7 @@
       </div>
 
       <!-- AI API Settings Section -->
-      <!-- <div class="settings-section" style="background: rgba(255, 255, 255, 0.95);">
+      <div class="settings-section" style="background: rgba(255, 255, 255, 0.95);">
         <div class="section-header">
           <h3 class="section-subtitle">
             <i class="fas fa-robot"></i>
@@ -63,7 +63,7 @@
               </label>
               <select name="ai_model_api" class="form-select" id="aiModelSelect" required>
                 {% for model in ai_models %}
-                <option value="{{ model }}" {% if model.value == current_ai_model %}selected{% endif %}>
+                <option value="{{ model }}" {% if model == current_ai_model %}selected{% endif %}>
                   {{ model }}
                 </option>
                 {% endfor %}
@@ -99,7 +99,7 @@
             </button>
           </div>
         </form>
-      </div> -->
+      </div>
 
       <div class="action-bar">
         <a href="{{ url_for('feature') }}" class="action-btn secondary-btn">
@@ -110,26 +110,6 @@
           <i class="fas fa-home"></i>
           トップページに戻る
         </a>
-      </div>
-
-      <!-- Analysis Progress -->
-      <div id="analysisProgress" class="analysis-progress" style="display: none;">
-        <div class="progress-header">
-          <h4>
-            <i class="fas fa-spinner fa-spin"></i>
-            AI分析実行中
-          </h4>
-          <div class="progress-stats">
-            <span id="progressText">処理中...</span>
-          </div>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-        <div class="progress-details">
-          <div id="currentFrame">準備中...</div>
-          <div id="processingTime">-</div>
-        </div>
       </div>
 
       {% if frame_data %}
@@ -211,13 +191,25 @@
                           <div class="result-content">{{ frame.diff_text_ai }}</div>
                         </div>
                       {% else %}
-                        <div class="loading-analysis">
-                          <div class="spinner"></div>
-                          <div class="loading-text">
-                            <strong>AIが詳細分析を実行中...</strong>
-                            <span>しばらくお待ちください</span>
+                        {% if all_analysis_complete %}
+                          <div class="stopped-analysis">
+                            <div class="stopped-icon">
+                              <i class="fas fa-pause-circle"></i>
+                            </div>
+                            <div class="stopped-text">
+                              <strong>分析が停止されました</strong>
+                              <span>「AIで再分析を実行」で再開できます</span>
+                            </div>
                           </div>
-                        </div>
+                        {% else %}
+                          <div class="loading-analysis">
+                            <div class="spinner"></div>
+                            <div class="loading-text">
+                              <strong>AIが詳細分析を実行中...</strong>
+                              <span>しばらくお待ちください</span>
+                            </div>
+                          </div>
+                        {% endif %}
                       {% endif %}
                     </div>
                   </div>
@@ -243,22 +235,39 @@
   </div>
 
   <script type="application/json" id="jsConfig">
-    {
-      "allComplete": {{ 'true' if all_analysis_complete else 'false' }},
-      "currentAiModel": "{{ current_ai_model }}",
-      "currentAiPrompt": "{{ current_ai_prompt }}"
-    }
+    {{ {
+      "allComplete": all_analysis_complete,
+      "currentAiModel": current_ai_model,
+      "currentAiPrompt": current_ai_prompt
+    } | tojson }}
   </script>
 
   <script>
+    const config = JSON.parse(document.getElementById('jsConfig').textContent);
+    const model = document.getElementById('aiModelSelect');
+    const prompt = document.getElementById('aiPromptTextarea');
+    const textarea = document.getElementById('aiPromptTextarea');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const currentFrame = document.getElementById('currentFrame');
+    const processingTime = document.getElementById('processingTime');
+    const reanalyzeBtn = document.getElementById('reanalyzeBtn');
+    const stopAnalysisBtn = document.getElementById('stopAnalysisBtn');
+
     let reloadTimer = null;
-    let isAnalysisRunning = false;
+    let isAnalysisRunning = !config.allComplete;
     let currentAnalysisController = null;
+
+    // イベントリスナー
+    document.getElementById('aiSettingsForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      startReanalysis();
+    });
+
+    document.getElementById('stopAnalysisBtn').addEventListener('click', stopAnalysis);
 
     // 自動更新関数
     async function reloadDiffs() {
-      if (isAnalysisRunning) return; // 分析中は自動更新を一時停止
-
       try {
         const res = await fetch(window.location.href, { cache: "no-store" });
         const html = await res.text();
@@ -267,28 +276,34 @@
 
         let updated = false;
         let allDone = true;
+        let completedFrames = 0;
+        let totalFrames = 0;
 
         document.querySelectorAll(".diff-details").forEach(div => {
           const id = div.id;
           const newDiv = doc.getElementById(id);
+          totalFrames++;
 
           if (newDiv && newDiv.innerHTML !== div.innerHTML) {
             div.innerHTML = newDiv.innerHTML;
             updated = true;
           }
 
-          // まだ読み込み中の場合 → 完了していません
+          // 完了したフレームをカウント
           if (div.querySelector(".loading-analysis")) {
             allDone = false;
           }
         });
 
+        // 進捗状況を更新
+        if (totalFrames > 0) {
+          const percentage = Math.round((completedFrames / totalFrames) * 100);
+        }
+
         // すべての結果が利用可能な場合 → 更新を停止
         if (allDone) {
           console.log("すべてのAI分析が完了しました。自動更新を停止します。");
-          clearInterval(reloadTimer);
-        } else if (updated) {
-          console.log("ページを更新しました。");
+          clearStopUI();
         }
       } catch (err) {
         console.error("更新に失敗しました:", err);
@@ -302,106 +317,155 @@
         return;
       }
 
-      const model = document.getElementById('aiModelSelect').value;
-      const prompt = document.getElementById('aiPromptTextarea').value;
+      const modelValue = model.value.trim();
+      const promptValue = prompt.value.trim();
 
-      if (!model || !prompt) {
+      if (!modelValue || !promptValue) {
         alert('AIモデルとプロンプトを入力してください。');
         return;
       }
 
       isAnalysisRunning = true;
       currentAnalysisController = new AbortController();
-      
+
+      // 重要: すべてのAI結果をローディング状態にリセット
+      resetAllAIResultsToLoading();
+
       // UI更新
-      document.getElementById('reanalyzeBtn').style.display = 'none';
-      document.getElementById('stopAnalysisBtn').style.display = 'inline-flex';
-      document.getElementById('analysisProgress').style.display = 'block';
+      reanalyzeBtn.style.display = 'none';
+      stopAnalysisBtn.style.display = 'inline-flex';
 
       try {
         const response = await fetch('/reanalyze_frames', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ai_model: model,
-            ai_prompt: prompt
+            ai_model: modelValue,
+            ai_prompt: promptValue
           }),
           signal: currentAnalysisController.signal
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
         const data = await response.json();
-        
-        if (data.success) {
-          alert('AI再分析が完了しました。');
-          // ページをリロードして新しい結果を表示
-          location.reload();
-        } else {
-          throw new Error(data.error || '再分析に失敗しました。');
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || data.message || `HTTP ${response.status}`);
         }
+        
+        // 即座に自動更新を開始
+        clearInterval(reloadTimer);
+        console.log("[startReanalysis] reloadDiffs");
+        
+        reloadTimer = setInterval(reloadDiffs, 5000);
 
       } catch (error) {
         if (error.name === 'AbortError') {
           console.log('分析がユーザーによって停止されました。');
+          // すべてのフレームに「停止済み」状態を表示
+          showStoppedStateForAllFrames();
         } else {
           console.error('再分析エラー:', error);
-          alert('再分析中にエラーが発生しました: ' + error.message);
+          // すべてのフレームにエラー状態を表示
+          showErrorStateForAllFrames(error.message);
         }
-      } finally {
         stopAnalysis();
       }
     }
-
+        
     // 分析停止関数
-    function stopAnalysis() {
-      isAnalysisRunning = false;
+    async function stopAnalysis() {
+      if (!isAnalysisRunning) return;
+
+      try {
+        const res = await fetch('/stop_analysis', { method: 'POST' });
+        const data = await res.json();
+        console.log('停止結果:', data.message);
+      } catch (e) {
+        console.error('分析停止エラー:', e);
+      }
+
       if (currentAnalysisController) {
         currentAnalysisController.abort();
         currentAnalysisController = null;
       }
-      
+
+      clearStopUI();
+
+      showStoppedStateForAllFrames();
+    }
+
+    // すべてのAI結果をローディング状態にリセット
+    function resetAllAIResultsToLoading() {
+      document.querySelectorAll('.diff-details').forEach(div => {
+        div.innerHTML = `
+          <div class="loading-analysis">
+            <div class="spinner"></div>
+            <div class="loading-text">
+              <strong>AIが詳細分析を実行中...</strong>
+              <span>新しい設定で再分析中</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // 停止済み状態を表示
+    function showStoppedStateForAllFrames() {
+      document.querySelectorAll('.diff-details').forEach(div => {
+        if (div.querySelector('.loading-analysis')) {
+          div.innerHTML = `
+            <div class="stopped-analysis">
+              <div class="stopped-icon">
+                <i class="fas fa-pause-circle"></i>
+              </div>
+              <div class="stopped-text">
+                <strong>分析が停止されました</strong>
+                <span>「AIで再分析を実行」で再開できます</span>
+              </div>
+            </div>
+          `;
+        }
+      });
+    }
+
+    // エラー状態を表示
+    function showErrorStateForAllFrames(errorMessage) {
+      document.querySelectorAll('.diff-details').forEach(div => {
+        if (div.querySelector('.loading-analysis')) {
+          div.innerHTML = `
+            <div class="error-analysis">
+              <div class="error-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <div class="error-text">
+                <strong>分析エラー</strong>
+                <span>${errorMessage}</span>
+              </div>
+            </div>
+          `;
+        }
+      });
+    }
+
+    function clearStopUI() {
+      clearInterval(reloadTimer);
+      reloadTimer = null;
+      isAnalysisRunning = false;
+
       // UIを元に戻す
-      document.getElementById('reanalyzeBtn').style.display = 'inline-flex';
-      document.getElementById('stopAnalysisBtn').style.display = 'none';
-      document.getElementById('analysisProgress').style.display = 'none';
+      reanalyzeBtn.style.display = 'inline-flex';
+      stopAnalysisBtn.style.display = 'none';
     }
 
-    // 進捗状況更新関数（サーバーからSSEなどで受け取る想定）
-    function updateProgress(progress) {
-      const progressFill = document.getElementById('progressFill');
-      const progressText = document.getElementById('progressText');
-      const currentFrame = document.getElementById('currentFrame');
-      const processingTime = document.getElementById('processingTime');
-
-      if (progressFill) {
-        progressFill.style.width = `${progress.percentage}%`;
-      }
-      if (progressText) {
-        progressText.textContent = `進捗: ${progress.current}/${progress.total} (${progress.percentage}%)`;
-      }
-      if (currentFrame) {
-        currentFrame.textContent = `処理中: ${progress.currentFrame || '準備中'}`;
-      }
-      if (processingTime) {
-        processingTime.textContent = `処理時間: ${progress.elapsedTime || '-'}`;
-      }
+    if(config.allComplete) {        
+      reanalyzeBtn.style.display = 'inline-flex';
+      stopAnalysisBtn.style.display = 'none';
+    } else {
+      reanalyzeBtn.style.display = 'none';
+      stopAnalysisBtn.style.display = 'inline-flex';
     }
-
-    // イベントリスナー
-    document.getElementById('aiSettingsForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      startReanalysis();
-    });
-
-    document.getElementById('stopAnalysisBtn').addEventListener('click', stopAnalysis);
 
     // テキストエリアの自動リサイズ
-    const textarea = document.getElementById('aiPromptTextarea');
     if (textarea) {
       textarea.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -414,7 +478,6 @@
     }
 
     // 自動更新開始（完了していない場合のみ）
-    const config = JSON.parse(document.getElementById('jsConfig').textContent);
     if (!config.allComplete) {
         reloadTimer = setInterval(reloadDiffs, 5000);
     }

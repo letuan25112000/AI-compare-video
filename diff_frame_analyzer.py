@@ -5,7 +5,6 @@ import base64
 import io
 import requests
 from PIL import Image
-
 from config import API_MODELS, API_PROMPT
 
 
@@ -22,7 +21,7 @@ class ImageDiffAI:
         api_url="https://lsi-dvc.aa0.netvolante.jp/ollama/api/generate",
         max_size=(512, 512),
         quality=80,
-        delay=1.0, 
+        delay=1.0,
         stop_event=None
     ):
         self.result_dir = result_dir
@@ -32,8 +31,9 @@ class ImageDiffAI:
         self.max_size = max_size
         self.quality = quality
         self.delay = delay
-        self.headers = {"Content-Type": "application/json"}
         self.stop_event = stop_event
+        self.headers = {"Content-Type": "application/json"}
+        self.json_file = "diff_frames.json"
 
     # --------------------------------------------------
     # 画像を圧縮してBase64文字列に変換
@@ -47,108 +47,127 @@ class ImageDiffAI:
                 img.save(buffer, format="JPEG", quality=self.quality)
                 return base64.b64encode(buffer.getvalue()).decode("utf-8")
         except Exception as e:
-            print(f"画像圧縮エラー: {image_path} -> {e}")
+            print(f"[圧縮エラー] {image_path}: {e}")
             return None
 
     # --------------------------------------------------
     # 2枚の画像をAIで比較
     # --------------------------------------------------
     def compare_images(self, img1_path, img2_path):
-        compress_start = time.time()
+        if self.stop_event and self.stop_event.is_set():
+            print("停止要求を検出。compare_images() を中断。")
+            return {"error": "処理が停止されました。"}
+
         img1_base64 = self.compress_image(img1_path)
         img2_base64 = self.compress_image(img2_path)
-        compress_time = time.time() - compress_start
-
         if not img1_base64 or not img2_base64:
             return {"error": "画像を圧縮できませんでした。"}
-
-        print(f"AIモデル「{self.api_model}」を使用して画像を比較中...")
 
         data = {
             "model": self.api_model,
             "prompt": self.api_prompt,
             "images": [img1_base64, img2_base64],
-            "stream": False
+            "stream": False,
         }
 
         try:
             api_start = time.time()
-            response = requests.post(self.api_url, headers=self.headers, json=data)
-            api_time = time.time() - api_start
+            with requests.post(
+                self.api_url,
+                headers=self.headers,
+                json=data,
+                timeout=10,
+                stream=True
+            ) as response:
+                while not response.ok:
+                    if self.stop_event and self.stop_event.is_set():
+                        print("停止要求を検出。AIリクエストを中断。")
+                        return {"error": "処理が停止されました。"}
+                    time.sleep(0.5)
 
-            if response.status_code == 200:
                 result = response.json()
-                return {
-                    "response": result.get('response', 'AIからの応答がありません。'),
-                    "timing": {
-                        "compress_time": round(compress_time, 2),
-                        "api_time": round(api_time, 2),
-                        "total_time": round(compress_time + api_time, 2)
-                    }
-                }
-            else:
-                print(f"APIエラー: {response.status_code} - {response.text}")
-                return {
-                    "error": f"APIエラー: {response.status_code}",
-                    "timing": {
-                        "compress_time": round(compress_time, 2),
-                        "api_time": round(api_time, 2),
-                        "total_time": round(compress_time + api_time, 2)
-                    }
-                }
-        except Exception as e:
-            print(f"接続エラー: {e}")
+                api_time = round(time.time() - api_start, 2)
+
             return {
-                "error": f"接続エラー: {str(e)}",
-                "timing": {
-                    "compress_time": round(compress_time, 2),
-                    "api_time": 0,
-                    "total_time": round(compress_time, 2)
-                }
+                "response": result.get("response", "AIからの応答がありません。"),
+                "timing": {"api_time": api_time},
             }
+
+        except requests.Timeout:
+            return {"error": "AIリクエストがタイムアウトしました。"}
+        except Exception as e:
+            if self.stop_event and self.stop_event.is_set():
+                print("AI比較中に停止要求を検出。")
+                return {"error": "処理が停止されました。"}
+            return {"error": f"接続エラー: {str(e)}"}
+
 
     # --------------------------------------------------
     # diff_frames.jsonを処理してAIの結果を追加
     # --------------------------------------------------
     def handle_diff_frames(self):
-        frame_data_path = os.path.join(self.result_dir, "diff_frames.json")
+        frame_data_path = os.path.join(self.result_dir, self.json_file)
 
         if not os.path.exists(frame_data_path):
-            print("diff_frames.json が見つかりません。")
+            print(f"{self.json_file} が見つかりません。")
             return None
 
         with open(frame_data_path, "r", encoding="utf-8") as f:
             frame_data = json.load(f)
 
-        print(f"AIによる処理を開始します。動画グループ数: {len(frame_data)}")
+        print(f"AI分析開始: グループ数 = {len(frame_data)}")
 
-        for group_idx, video_group in enumerate(frame_data):
-            print(f"グループ {group_idx+1}/{len(frame_data)}: {len(video_group)} 枚のフレームを比較中...")
-
-            for frame_idx, frame_pair in enumerate(video_group):
+        for group_idx, video_group in enumerate(frame_data, start=1):
+            for frame_idx, frame_pair in enumerate(video_group, start=1):
                 if self.stop_event and self.stop_event.is_set():
-                    print("処理が停止されました。")
+                    print("停止要求を検出。処理を終了します。")
                     return
-                
+
                 org_frame_path = os.path.join(self.result_dir, frame_pair["org_frame"])
                 compare_frame_path = os.path.join(self.result_dir, frame_pair["compare_frame"])
-
-                print(f"[{group_idx+1}-{frame_idx+1}] 比較中: {frame_pair['org_frame']} vs {frame_pair['compare_frame']}")
+                print(f"[{group_idx}-{frame_idx}] {frame_pair['org_frame']} vs {frame_pair['compare_frame']}")
 
                 ai_result = self.compare_images(org_frame_path, compare_frame_path)
-                diff_text_ai = ai_result.get("response") if not ai_result.get("error") else ai_result["error"]
 
-                frame_pair["diff_text_ai"] = diff_text_ai
+                if self.stop_event and self.stop_event.is_set():
+                    print("停止要求を検出。compare_images後に終了します。")
+                    return
+
+                frame_pair["diff_text_ai"] = ai_result.get("response") if not ai_result.get("error") else ai_result["error"]
                 frame_pair["timing"] = ai_result.get("timing", {})
 
-                # 各フレームごとにJSONを更新して保存
                 with open(frame_data_path, "w", encoding="utf-8") as f:
                     json.dump(frame_data, f, ensure_ascii=False, indent=2)
 
-                time.sleep(self.delay)
+                for _ in range(int(self.delay * 10)): 
+                    if self.stop_event and self.stop_event.is_set():
+                        print("停止要求を検出。スリープ中に終了します。")
+                        return
+                    time.sleep(0.1)
 
-        print("diff_frames.json に diff_text_ai を更新しました。")
+        print(f"{self.json_file} を更新しました。")
         return frame_data_path
+
+    # --------------------------------------------------
+    # diff_text_aiをクリアして再分析に備える
+    # --------------------------------------------------
+    def clear_api_result_json(self):
+        print("[再分析準備] diff_text_aiをリセットします。")
+
+        frame_data_path = os.path.join(self.result_dir, self.json_file)
+        if os.path.exists(frame_data_path):
+            with open(frame_data_path, "r", encoding="utf-8") as f:
+                frame_data = json.load(f)
+
+            for video_group in frame_data:
+                for frame_pair in video_group:
+                    frame_pair.pop("diff_text_ai", None)
+                    frame_pair.pop("timing", None)
+
+            with open(frame_data_path, "w", encoding="utf-8") as f:
+                json.dump(frame_data, f, ensure_ascii=False, indent=2)
+
+            print("[完了] diff_text_aiをリセットしました。")
 
 
 # --------------------------------------------------

@@ -852,6 +852,7 @@ body {
   border-left: 4px solid #667eea;
   color: #4a5568;
   line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .diff-details {
@@ -1347,4 +1348,68 @@ body {
     line-height: 1.6;
     white-space: pre-wrap;
     font-size: 1.05rem;
+}
+
+/* Stopped State */
+.stopped-analysis {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    color: #856404;
+}
+
+.stopped-icon {
+    font-size: 2rem;
+    color: #f39c12;
+}
+
+.stopped-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stopped-text strong {
+    font-weight: 600;
+}
+
+.stopped-text span {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Error State */
+.error-analysis {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    color: #721c24;
+}
+
+.error-icon {
+    font-size: 2rem;
+    color: #e74c3c;
+}
+
+.error-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.error-text strong {
+    font-weight: 600;
+}
+
+.error-text span {
+    font-size: 0.9rem;
+    opacity: 0.8;
 }
