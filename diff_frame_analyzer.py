@@ -76,7 +76,6 @@ class ImageDiffAI:
                 self.api_url,
                 headers=self.headers,
                 json=data,
-                timeout=10,
                 stream=True
             ) as response:
                 while not response.ok:
@@ -93,8 +92,6 @@ class ImageDiffAI:
                 "timing": {"api_time": api_time},
             }
 
-        except requests.Timeout:
-            return {"error": "AIリクエストがタイムアウトしました。"}
         except Exception as e:
             if self.stop_event and self.stop_event.is_set():
                 print("AI比較中に停止要求を検出。")
